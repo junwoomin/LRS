@@ -6,8 +6,6 @@
 
 The idea is to learn driving behavior first in a simulator that exposes BEV or occupancy states without producing RGB camera images. A later stage would generate camera observations from those structured states and use them for a second round of learning. The goal is a complete workflow from inexpensive behavioral exploration to image-based driving research.
 
-![Original LRS concept](assets/lrs-concept.png)
-
 ## Two-stage learning design
 
 | Stage | Input and operation | Intended outcome |
