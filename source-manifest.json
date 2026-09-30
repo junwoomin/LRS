@@ -1,0 +1,25 @@
+{
+  "repository": "LRS",
+  "title": "LRS: Low Resource Simulation",
+  "stage": "Research concept",
+  "source_files": [
+    {
+      "filename": "그림 원본.pptx",
+      "sha256": "c1f2f51eb78530f89ad7ec2a2ad0963a2f40a4a660039e8b0e8675919c6ab534",
+      "size_bytes": 9752861,
+      "slides": [
+        3
+      ]
+    }
+  ],
+  "additional_source": "Author description accompanying the three decks, 2026-09-30",
+  "figures": [
+    {
+      "slide": 3,
+      "repository_path": "assets/lrs-concept.png",
+      "transformation": "PPTX rendering; see README for semantic flow"
+    }
+  ],
+  "implementation_source_provided": false,
+  "youtube_playback_verified": false
+}
