@@ -2,7 +2,6 @@
 
 [한국어](README_ko.md)
 
-
 **Status: research concept.** LRS means **Low Resource Simulation**. It remained an architecture sketch because the full research stack required more time than was available.
 
 The idea is to learn driving behavior first in a simulator that exposes BEV or occupancy states without producing RGB camera images. A later stage would generate camera observations from those structured states and use them for a second round of learning. The goal is a complete workflow from inexpensive behavioral exploration to image-based driving research.
@@ -33,8 +32,7 @@ SDV was intended to be the user-facing configuration and experiment interface. L
 
 No simulator implementation, generator integration, resource reduction, or driving score is claimed here.
 
-## Sources and related work
+## Related work
 
-- `그림 원본.pptx`, slide 3, and the author's project description.
 - [UniScene: Unified Occupancy-centric Driving Scene Generation, CVPR 2025](https://openaccess.thecvf.com/content/CVPR2025/html/Li_UniScene_Unified_Occupancy-centric_Driving_Scene_Generation_CVPR_2025_paper.html).
 - [UniScene author repository](https://github.com/Arlo0o/UniScene-Unified-Occupancy-centric-Driving-Scene-Generation). This work uses occupancy as an intermediate representation for driving-scene generation. It is an external reference, not an implemented dependency of LRS.

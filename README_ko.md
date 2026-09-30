@@ -2,7 +2,6 @@
 
 [English](README.md)
 
-
 **상태: 연구 아이디어 단계.** LRS는 **Low Resource Simulation**의 약자입니다. 전체 연구 범위가 커서 구조 스케치까지 진행했습니다.
 
 처음부터 RGB 카메라 영상을 생성하며 학습하는 대신, BEV 또는 occupancy 상태만 제공하는 시뮬레이션에서 주행을 먼저 학습하는 구상입니다. 이후 구조화된 상태로부터 이미지를 생성하고, 그 이미지로 2차 학습을 수행하는 전체 연구 흐름을 목표로 했습니다.
@@ -33,8 +32,7 @@ SDV는 설정과 실험을 다루는 사용자 인터페이스, LRS는 시뮬레
 
 현재 자료로는 시뮬레이터 구현, 생성 모델 연동, 자원 절감률, 주행 성능을 주장할 수 없습니다.
 
-## 출처와 참고 연구
+## 참고 연구
 
-- `그림 원본.pptx` 3번 슬라이드와 작성자의 설명.
 - [UniScene: Unified Occupancy-centric Driving Scene Generation, CVPR 2025](https://openaccess.thecvf.com/content/CVPR2025/html/Li_UniScene_Unified_Occupancy-centric_Driving_Scene_Generation_CVPR_2025_paper.html).
 - [UniScene 저자 저장소](https://github.com/Arlo0o/UniScene-Unified-Occupancy-centric-Driving-Scene-Generation). LRS에 실제로 통합된 의존성이 아니라 구상을 설명하기 위한 외부 참고 연구입니다.
