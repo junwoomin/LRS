@@ -1,0 +1,13 @@
+# Direct dependencies of train_w.py, loop.py, and sim/.
+# Original dependency versions were not recorded; this is not a tested lockfile.
+numpy
+torch
+opencv-python
+pygame
+shapely
+networkx
+carla
+gym
+gymnasium
+omegaconf
+tqdm

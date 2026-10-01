@@ -1,0 +1,8 @@
+-r requirements.txt
+
+# Additional imports in the retained ROACH agent/training integrations.
+# carla_gym is also needed by some criteria and is not bundled here.
+stable-baselines3
+hydra-core
+h5py
+wandb

@@ -1,6 +1,35 @@
+# Python and local environments
 __pycache__/
 *.py[cod]
-.DS_Store
-Thumbs.db
+*.nbc
+*.nbi
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Local credentials and configuration
 .env
 .env.*
+.DS_Store
+Thumbs.db
+
+# Separately supplied map data and generated datasets
+/sim_using_data/
+/data/
+
+# Training outputs, checkpoints, and videos
+/artifacts/
+/roach_run/
+/roach/log/
+/roach/checkpoints/
+/wandb/
+/ckpt/
+*.log
+*.pth
+*.pt
+*.ckpt
+*.mp4
+*.avi
+*.zip
