@@ -31,7 +31,7 @@ NPU export/runtime integration, behavior-diversity controls, and measured data-q
 | [`sim/`](sim/) | Vehicle/pedestrian dynamics, routing, traffic lights, BEV maps, and geometry helpers |
 | [`data_gan.py`](data_gan.py) | Older BEV/trajectory export prototype using scripted vehicle control; requires compatibility fixes |
 | [`env.py`](env.py), [`model/ppo.py`](model/ppo.py) | Earlier environment and PPO variants; unused by the main entrypoint |
-| `sim_using_data/` | Required external map assets, supplied separately and excluded from Git |
+| `sim_using_data/` | Required map assets. Download the [ZIP archive](sim_using_data/sim_using_data.zip), extract it, and use the extracted files locally |
 
 The ROACH wrappers and criteria are retained with the source. Some depend on an external `carla_gym` package, which is not included.
 
@@ -61,9 +61,9 @@ python -m pip install -r requirements.txt
 
 The main simulation reads offline map assets and advances local vehicle dynamics. Install the CARLA Python API even when using this offline loop.
 
-### Map assets supplied separately
+### Map assets: download and extract
 
-Place `sim_using_data/` under the repository root. It is intentionally absent from this code release. The current RL environment reads:
+The map assets are uploaded as [`sim_using_data/sim_using_data.zip`](sim_using_data/sim_using_data.zip). Download and extract the archive before running the code. Arrange the extracted files under the repository root so that paths such as `sim_using_data/data5/<Town>/` and `sim_using_data/Town/` exist. Avoid an extra nested `sim_using_data/sim_using_data/` directory. The current RL environment reads:
 
 | Location | Required content |
 | --- | --- |

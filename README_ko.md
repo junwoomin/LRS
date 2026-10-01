@@ -31,7 +31,7 @@ NPU 변환·런타임 연동, 행동 다양성 제어, 데이터 품질 향상 �
 | [`sim/`](sim/) | 차량·보행자 동역학, 경로, 신호등, BEV 맵, 기하 유틸리티 |
 | [`data_gan.py`](data_gan.py) | 규칙 기반 차량 제어를 사용하는 이전 BEV·궤적 생성 프로토타입. 호환성 수정 필요 |
 | [`env.py`](env.py), [`model/ppo.py`](model/ppo.py) | 이전 환경·PPO 구현. 주요 실행 파일에서는 사용하지 않음 |
-| `sim_using_data/` | 별도로 제공할 필수 지도 자산. Git 업로드 대상에서 제외 |
+| `sim_using_data/` | 필수 지도 자산. 업로드된 [ZIP 파일](sim_using_data/sim_using_data.zip)을 내려받아 압축을 풀고 사용 |
 
 ROACH wrapper와 주행 기준 관련 코드는 유지했습니다. 일부는 외부 `carla_gym` 패키지에 의존하며, 해당 패키지는 포함되어 있지 않습니다.
 
@@ -61,9 +61,9 @@ python -m pip install -r requirements.txt
 
 주요 시뮬레이션은 오프라인 지도 자산을 읽고 로컬 차량 동역학을 진행합니다. 이 루프에서도 CARLA Python API 설치가 필요합니다.
 
-### 별도 제공 지도 자산
+### 지도 자산 다운로드 및 압축 해제
 
-저장소 루트 아래에 `sim_using_data/`를 배치합니다. 이번 코드 공개에는 포함하지 않습니다. 현재 RL 환경은 다음 자산을 읽습니다.
+지도 자산은 [`sim_using_data/sim_using_data.zip`](sim_using_data/sim_using_data.zip)으로 업로드되어 있습니다. 실행 전에 ZIP을 내려받아 압축을 풀어 주세요. 저장소 루트 아래에 `sim_using_data/data5/<Town>/`, `sim_using_data/Town/` 등의 경로가 생기도록 배치합니다. `sim_using_data/sim_using_data/`처럼 폴더가 중복되지 않도록 확인하세요. 현재 RL 환경은 다음 자산을 읽습니다.
 
 | 위치 | 필요한 내용 |
 | --- | --- |
