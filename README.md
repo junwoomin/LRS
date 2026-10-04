@@ -2,7 +2,9 @@
 
 [한국어](README_ko.md)
 
-**Status: early research prototype. This version is incomplete, may fail at runtime, and still contains unresolved bugs.**
+**Status: research prototype with an implemented and exercised simulation, data collection, and reinforcement-learning workflow.** During development, the basic workflow collected data from multiple vehicles and ran reinforcement learning. However, learning performance remained unsatisfactory, and extracting data from all vehicles made each simulation tick slow to process. Development stopped while this bottleneck was being addressed.
+
+Historical execution and reproducibility of the current public source are separate. The public snapshot still has execution-path and checkpoint compatibility issues, and the original environment and full workflow have not been revalidated for this release.
 
 LRS explores driving simulation and behavior learning using BEV observations. The purpose is to train driving policies, use them to control NPC vehicles with varied behavior, and collect richer driving data through their interactions. The longer-term goal was to build an autonomous-driving policy for NPU deployment and use NPU inference to control these NPCs. Improved data quality and lower resource cost are research goals; neither has been measured in this release.
 
@@ -95,9 +97,14 @@ This is an entrypoint example, **not a successful end-to-end training result**. 
 
 W&B is disabled by default. To enable it, install `wandb`, authenticate locally using `wandb login` or `WANDB_API_KEY`, and set `WANDB=1`. `WANDB_PROJECT` and `WANDB_ENTITY` configure the destination. No API key is included in the public source.
 
-## Known limitations
+## Historical performance limits and public-source limitations
 
-- **PPO rollout/update mismatch:** `train_w.py` collects ego actions, values, and log probabilities from the frozen checkpoint policy while updating a separate `PPOAgent`. The trained agent does not drive the subsequent rollout. This connection needs correction before claiming valid on-policy PPO training.
+- **Learning performance:** the basic collection and training workflow ran, but satisfactory driving-policy performance was not achieved.
+- **Tick-processing bottleneck:** extracting observations and data from multiple vehicles made tick processing slow. Development stopped during work on this collection and processing bottleneck; no completed optimization or measured speedup is reported.
+
+The following items describe reproducibility issues in the current public source, separately from the basic workflow that ran during development.
+
+- **Public-source PPO rollout/update connection:** the current public `train_w.py` collects ego actions, values, and log probabilities from the frozen checkpoint policy while updating a separate `PPOAgent`. The trained agent does not drive the subsequent rollout. This connection needs correction before claiming valid on-policy PPO training.
 - **Checkpoint compatibility:** the two policy implementations use different parameter layouts and save metadata. Loading reports missing/unexpected keys; partial loading does not establish a valid resumed model. Older checkpoints may also require a compatible PyTorch serialization environment.
 - **Older exporter:** `data_gan.py` uses scripted controls and older `BicycleModel` calls that omit the current `id` and `town` arguments. It is not the RL-controlled NPC data pipeline and is not ready for end-to-end use.
 - **Video path:** the retained recording logic queries a `bev` field, while the current environment returns `birdview`. Video export needs further adaptation.
