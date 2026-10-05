@@ -9,47 +9,17 @@ import numpy as np
 import torch
 import cv2
 import logging
+from omegaconf import OmegaConf
 
 from loop import BEVPathFollowEnv, RewardConfig
 
 from roach.ppo import PPOAgent, PPOConfig, RolloutBuffer
+from roach.models.ppo_policy import PpoPolicy
+
+import os
+from local_logging import LocalRun, run_directory
 from collections import Counter
 
-try:
-    import wandb
-except ImportError:
-    wandb = None
-
-def init_wandb(algo: str, town: str, total_timesteps: int, extra_cfg: dict):
-    use_wandb = bool(int(os.environ.get("WANDB", "0")))
-    if not use_wandb:
-        return None
-    if wandb is None:
-        raise RuntimeError("WANDB=1 requires wandb. Install it with: pip install wandb")
-
-    run_name = (
-        f"{algo}-{town}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-    )
-
-    run = wandb.init(
-        project=os.environ.get("WANDB_PROJECT", "LRS"),
-        entity=os.environ.get("WANDB_ENTITY") or None,
-        name=run_name,
-        config={
-            "algo": algo,
-            "town": town,
-            "total_timesteps": total_timesteps,
-            **extra_cfg,
-        },
-    )
-
-    # x-axis를 global_step으로 통일 (차트 보기 편함)
-    wandb.define_metric("global_step")
-    wandb.define_metric("train/*", step_metric="global_step")
-    wandb.define_metric("episode/*", step_metric="global_step")
-    wandb.define_metric("perf/*", step_metric="global_step")
-
-    return run
 def get_clean_reason(reason_str):
     if reason_str is None: return "Unknown"
     if "stationary" in reason_str: return "Stationary"
@@ -235,8 +205,13 @@ def train(
     video_bev_resize: int,
     panel_w: int,
     video_steps: int,
-    wandb_run=None,
+    local_run=None,
+    output_dir=None,
 ):
+    output_dir = Path(output_dir) if output_dir is not None else run_directory(town)
+    if local_run is None:
+        local_run = LocalRun(output_dir)
+
     # -------------------------
     # init obs / shapes
     # -------------------------
@@ -270,14 +245,25 @@ def train(
         cfg=cfg,
     )
 
-    agent.load(env.checkpoint_path)
+    agent.load('roach/log/ckpt_11833344.pth')
 
     num_updates = max(1, int(np.ceil(total_timesteps / cfg.rollout_steps)))
     agent.set_scheduler(num_updates)
 
-    # Reuse the checkpoint policy already loaded for NPC inference.
-    # The original rollout/PPO policy connection is retained; see README limitations.
-    _policy = env._policy
+    cfgs = OmegaConf.load("roach/config/config_agent.yaml")
+    cfgs = OmegaConf.to_container(cfgs)
+
+    _train_cfg = cfgs["training"]
+    _ckpt = "roach/log/ckpt_11833344.pth"
+
+    _policy, _train_cfg["kwargs"] = PpoPolicy.load(_ckpt)
+    _policy = _policy.eval().to(env.device)
+
+
+
+
+
+
     rollout = RolloutBuffer(
         size=cfg.rollout_steps,
         bev_shape=bev_shape,
@@ -313,7 +299,6 @@ def train(
     recording_left = 0
     last_video_start_step = -10**18
     current_video_artifact_dir = None
-    pending_video_wandb_save = None
 
     # -------------------------
     # safe train loop
@@ -337,7 +322,7 @@ def train(
                 )
 
                 if start_record and (vw is None) and (global_step - last_video_start_step >= save_every_steps):
-                    current_video_artifact_dir = Path("artifacts") / town / f"s{global_step:07d}"
+                    current_video_artifact_dir = output_dir / "videos" / f"s{global_step:07d}"
                     current_video_artifact_dir.mkdir(parents=True, exist_ok=True)
 
                     base_no_ext = str(current_video_artifact_dir / f"rollout_{town}_s{global_step:07d}")
@@ -355,7 +340,6 @@ def train(
 
                     recording_left = int(video_steps)
                     last_video_start_step = global_step
-                    pending_video_wandb_save = None
 
                 # ---------------------------------
                 # act
@@ -381,8 +365,8 @@ def train(
                 rollout.add(
                     obs=obs,
                     action=action,
-                    logp=float(logp),
-                    value=float(value),
+                    logp=float(np.asarray(logp).item()),
+                    value=float(np.asarray(value).item()),
                     reward=float(reward),
                     done=bool(done),
                 )
@@ -405,7 +389,9 @@ def train(
                 # video write
                 # ---------------------------------
                 if vw is not None and recording_left > 0:
-                    bev = next_obs.get("bev", None)
+                    bev = getattr(env, "input_vis_rgb", None)
+                    if bev is not None:
+                        bev = cv2.cvtColor(bev, cv2.COLOR_RGB2BGR)
                     if bev is not None:
                         if isinstance(bev, torch.Tensor):
                             bev = bev.detach().cpu().numpy()
@@ -447,7 +433,6 @@ def train(
                     if recording_left <= 0:
                         vw.release()
                         print(f"Saved video: {Path(video_out_path).resolve() if video_out_path else video_out_path}")
-                        pending_video_wandb_save = video_out_path
                         vw = None
                         video_out_path = None
                         current_video_artifact_dir = None
@@ -467,8 +452,8 @@ def train(
 
                     progress_pct = get_progress_percent(env, info if isinstance(info, dict) else {})
 
-                    if wandb_run is not None:
-                        wandb.log(
+                    if local_run is not None:
+                        local_run.log(
                             {
                                 "global_step": int(global_step),
                                 "episode/index": int(episode_idx),
@@ -482,16 +467,7 @@ def train(
                             step=int(global_step),
                         )
 
-                        data = [[reason, count] for reason, count in reason_counts.items()]
-                        table = wandb.Table(data=data, columns=["Reason", "Count"])
-                        wandb.log({
-                            "charts/fail_reason_distribution": wandb.plot.bar(
-                                table,
-                                "Reason",
-                                "Count",
-                                title="Fail Reason Distribution",
-                            )
-                        }, step=int(global_step))
+                        local_run.log({"episode/fail_reason_distribution": dict(reason_counts)}, step=global_step)
 
                     ep_returns.append(ep_ret)
                     ep_lens.append(ep_len)
@@ -531,7 +507,7 @@ def train(
                             f"approx_kl={last_stats.get('approx_kl', 0.0):.4f}"
                         )
 
-                    if wandb_run is not None:
+                    if local_run is not None:
                         payload = {
                             "global_step": int(global_step),
                             "perf/fps": float(fps),
@@ -546,29 +522,22 @@ def train(
                                 "train/approx_kl": float(last_stats.get("approx_kl", 0.0)),
                                 "train/lr": float(last_stats.get("lr", 0.0)),
                             })
-                        wandb.log(payload, step=int(global_step))
+                        local_run.log(payload, step=int(global_step))
 
                 # ---------------------------------
                 # periodic checkpoint save
                 # ---------------------------------
                 if global_step % save_every_steps == 0 or global_step == total_timesteps:
-                    artifact_dir = Path("roach_run") / town / f"s{global_step:07d}"
+                    artifact_dir = output_dir / "checkpoints" / f"s{global_step:07d}"
                     artifact_dir.mkdir(parents=True, exist_ok=True)
 
                     ckpt_path = artifact_dir / f"ppo_{town}_s{global_step:07d}.pth"
                     agent.save(str(ckpt_path))
                     print(f"Saved checkpoint: {ckpt_path.resolve()}")
 
-                    if wandb_run is not None:
-                        wandb.save(str(ckpt_path))
-
                 # ---------------------------------
-                # if a video finished this step, upload after finalize
+                # Videos remain on disk after finalization.
                 # ---------------------------------
-                if pending_video_wandb_save is not None and wandb_run is not None:
-                    wandb.save(str(pending_video_wandb_save))
-                    pending_video_wandb_save = None
-
             # ---------------------------------
             # PPO update after rollout
             # ---------------------------------
@@ -582,8 +551,8 @@ def train(
                 last_stats = agent.update(rollout)
                 update_idx += 1
 
-                if wandb_run is not None:
-                    wandb.log({
+                if local_run is not None:
+                    local_run.log({
                         "global_step": int(global_step),
                         "update/index": int(update_idx),
                         "train/loss_pi": float(last_stats.get("loss_pi", 0.0)),
@@ -597,14 +566,14 @@ def train(
         if vw is not None:
             vw.release()
             print(f"Finalized video: {Path(video_out_path).resolve() if video_out_path else video_out_path}")
-            if wandb_run is not None and video_out_path is not None:
-                wandb.save(str(video_out_path))
-def main():
-    os.makedirs("roach_run/checkpoints", exist_ok=True)
+def experimental_main():
+    town = os.environ.get("TOWN", "Town03")
+    output_dir = run_directory(town)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     logging.basicConfig(
-        filename=os.path.join("roach/results.log"),
-        filemode='w',
+        filename=str(output_dir / "results.log"),
+        filemode='a',
         format='%(asctime)s: %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
         level=logging.INFO
@@ -673,29 +642,26 @@ def main():
         "ppo_vf_coef": float(os.environ.get("PPO_VF_COEF", "0.5")),
     }
 
-    run = init_wandb(
-        algo='roach',
-        town=town,
-        total_timesteps=total_timesteps,
-        extra_cfg=extra_cfg
-    )
+    run = LocalRun(output_dir, {"town": town, "total_timesteps": total_timesteps, **extra_cfg})
 
-    train(
-        env=env,
-        town=town,
-        vis=vis,
-        render_mode=render_mode,
-        total_timesteps=total_timesteps,
-        save_every_steps=save_every_steps,
-        log_every_steps=log_every_steps,
-        video_fps=video_fps,
-        video_bev_resize=video_bev_resize,
-        panel_w=panel_w,
-        video_steps=video_steps,
-        wandb_run=run
-    )
-
-    env.close()
+    try:
+        train(
+            env=env,
+            town=town,
+            vis=vis,
+            render_mode=render_mode,
+            total_timesteps=total_timesteps,
+            save_every_steps=save_every_steps,
+            log_every_steps=log_every_steps,
+            video_fps=video_fps,
+            video_bev_resize=video_bev_resize,
+            panel_w=panel_w,
+            video_steps=video_steps,
+            local_run=run,
+            output_dir=output_dir,
+        )
+    finally:
+        env.close()
 
     end_time_raw = time.time()
     end_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -708,6 +674,12 @@ def main():
     logger.info(f"🏁 학습 종료 시간: {end_time_str}")
     logger.info(f"⏱️ 총 소요 시간: {hours}시간 {minutes}분 {seconds}초")
     logger.info("=" * 50 + "\n")
+
+
+def main():
+    # Default entrypoint is fixed-policy simulation. Learning has its own entrypoint.
+    from simulate import main as simulate_main
+    simulate_main()
 
 
 if __name__ == "__main__":

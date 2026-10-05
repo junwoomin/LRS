@@ -1,4 +1,5 @@
 from __future__ import annotations
+from roach.utils.checkpoint import load_checkpoint
 
 from dataclasses import dataclass, asdict
 from torch.optim.lr_scheduler import LambdaLR
@@ -75,15 +76,22 @@ class BetaActionDistribution:
         self.base_dist = torch.distributions.Beta(alpha, beta)
 
     def sample(self):
-        u = self.base_dist.sample()          # [0, 1]
+        u = self.base_dist.sample().clamp(self.eps, 1 - self.eps)  # bounded samples
         a = 2.0 * u - 1.0                    # [-1, 1]
         return a
 
     def deterministic_action(self):
-        # strict mode가 아니라 mean 사용 (안정적)
-        u = self.alpha / (self.alpha + self.beta)
-        a = 2.0 * u - 1.0
-        return a
+        # Match the supplied Roach Beta policy mode, including boundary cases.
+        alpha, beta = self.alpha, self.beta
+        u = torch.zeros_like(alpha)
+        u[:, 1] = 0.5
+        interior = (alpha > 1) & (beta > 1)
+        u[interior] = (alpha[interior] - 1) / (alpha[interior] + beta[interior] - 2)
+        u[(alpha <= 1) & (beta > 1)] = 0
+        u[(alpha > 1) & (beta <= 1)] = 1
+        both_small = (alpha <= 1) & (beta <= 1)
+        u[both_small] = self.base_dist.mean[both_small]
+        return 2 * u - 1
 
     def log_prob(self, action):
         # [-1,1] -> [0,1]
@@ -93,7 +101,7 @@ class BetaActionDistribution:
         return logp
 
     def entropy(self):
-        return self.base_dist.entropy().sum(dim=-1)
+        return self.base_dist.entropy().sum(dim=-1) + self.alpha.shape[-1] * np.log(2.0)
 class RolloutBuffer:
     def __init__(self, size, bev_shape, state_dim, action_dim, device):
         self.size = size
@@ -107,14 +115,20 @@ class RolloutBuffer:
         self.value = np.zeros((size,), dtype=np.float32)
         self.reward = np.zeros((size,), dtype=np.float32)
         self.done = np.zeros((size,), dtype=np.float32)
+        self.terminated = np.zeros((size,), dtype=np.float32)
+        self.next_value = np.full((size,), np.nan, dtype=np.float32)
 
         self.adv = np.zeros((size,), dtype=np.float32)
         self.ret = np.zeros((size,), dtype=np.float32)
 
         self.ptr = 0
 
-    def add(self, obs, action, logp, value, reward, done):
+    def add(self, obs, action, logp, value, reward, done, terminated=None, truncated=False, next_value=None):
+        if self.ptr >= self.size:
+            raise IndexError("Rollout buffer is full")
         i = self.ptr
+        self.terminated[i] = float(done if terminated is None else terminated)
+        self.next_value[i] = np.nan if next_value is None else next_value
         self.bev[i] = obs["birdview"]
         self.state[i] = obs["state"]
         self.action[i] = action
@@ -128,10 +142,13 @@ class RolloutBuffer:
         n = self.ptr
         adv = 0.0
         for t in reversed(range(n)):
-            next_nonterminal = 1.0 - self.done[t]
-            next_value = last_value if t == n - 1 else self.value[t + 1]
-            delta = self.reward[t] + gamma * next_value * next_nonterminal - self.value[t]
-            adv = delta + gamma * lam * next_nonterminal * adv
+            trace_nonterminal = 1.0 - self.done[t]
+            bootstrap_nonterminal = 1.0 - self.terminated[t]
+            next_value = self.next_value[t]
+            if np.isnan(next_value):
+                next_value = last_value if t == n - 1 else self.value[t + 1]
+            delta = self.reward[t] + gamma * next_value * bootstrap_nonterminal - self.value[t]
+            adv = delta + gamma * lam * trace_nonterminal * adv
             self.adv[t] = adv
 
         self.ret[:n] = self.adv[:n] + self.value[:n]
@@ -160,6 +177,7 @@ class RolloutBuffer:
 
     def reset(self):
         self.ptr = 0
+        self.next_value.fill(np.nan)
 
 @dataclass
 class PPOConfig:
@@ -178,6 +196,7 @@ class PPOConfig:
     vf_coef: float = 0.5
 
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    target_kl: float = 0.03
 
 
 class ActorCritic(nn.Module):
@@ -215,14 +234,14 @@ class ActorCritic(nn.Module):
         self.value_out = nn.Linear(256, 1)
 
     def forward(self, bev, state):
-        feat = self.features_extractor(bev, state)
+        feat = self.features_extractor(bev.float() / 255.0, state)
 
         pi_feat = self.policy_head(feat)
         vf_feat = self.value_head(feat)
 
-        # Beta 파라미터는 양수여야 하므로 softplus + 1
-        mu = F.softplus(self.mu_head(pi_feat)) + 1.0
-        sigma = F.softplus(self.sigma_head(pi_feat)) + 1.0
+        # Match the original checkpoint: Softplus without an added offset.
+        mu = F.softplus(self.mu_head(pi_feat)).clamp_min(torch.finfo(pi_feat.dtype).tiny)
+        sigma = F.softplus(self.sigma_head(pi_feat)).clamp_min(torch.finfo(pi_feat.dtype).tiny)
 
         value = self.value_out(vf_feat)
         return mu, sigma, value
@@ -231,13 +250,16 @@ class ActorCritic(nn.Module):
         mu, sigma, value = self.forward(bev, state)
         dist = BetaActionDistribution(mu, sigma)
         return dist, value
-
+    
 
 
 class PPOAgent:
     def __init__(self, bev_shape, state_dim=5, action_dim=2, cfg=None):
         self.cfg = cfg if cfg is not None else PPOConfig()
         self.device = self.cfg.device
+        if torch.device(self.device).type == "cuda":
+            # Keep single-observation collection and batched logprob recomputation in FP32.
+            torch.backends.cudnn.allow_tf32 = False
 
         self.bev_shape = bev_shape
         self.state_dim = state_dim
@@ -281,6 +303,8 @@ class PPOAgent:
 
     def update(self, buffer):
         cfg = self.cfg
+        if cfg.minibatch_size < 1 or cfg.update_epochs < 1 or buffer.ptr < 1:
+            raise ValueError("PPO needs positive epochs, batch size and a nonempty buffer")
         losses_pi, losses_v, entropies, approx_kls = [], [], [], []
 
         for _ in range(cfg.update_epochs):
@@ -288,7 +312,14 @@ class PPOAgent:
                 dist, value = self.net.get_dist_and_value(bev, state)
 
                 logp = dist.log_prob(action)
-                ratio = torch.exp(logp - old_logp)
+                log_ratio = logp - old_logp
+                ratio = torch.exp(log_ratio)
+                with torch.no_grad():
+                    approx_kl = ((ratio - 1) - log_ratio).mean().item()
+                if not np.isfinite(approx_kl):
+                    raise FloatingPointError("PPO KL became non-finite")
+                if approx_kl > cfg.target_kl:
+                    break
 
                 surr1 = ratio * adv
                 surr2 = torch.clamp(ratio, 1.0 - cfg.clip_eps, 1.0 + cfg.clip_eps) * adv
@@ -301,20 +332,19 @@ class PPOAgent:
 
                 loss = loss_pi + cfg.vf_coef * loss_v - cfg.ent_coef * entropy
 
+                if not torch.isfinite(loss):
+                    raise FloatingPointError("PPO loss became non-finite")
                 self.opt.zero_grad(set_to_none=True)
                 loss.backward()
-                nn.utils.clip_grad_norm_(self.net.parameters(), cfg.max_grad_norm)
+                nn.utils.clip_grad_norm_(self.net.parameters(), cfg.max_grad_norm, error_if_nonfinite=True)
                 self.opt.step()
-
-                with torch.no_grad():
-                    approx_kl = (old_logp - logp).mean().item()
 
                 losses_pi.append(loss_pi.item())
                 losses_v.append(loss_v.item())
                 entropies.append(entropy.item())
                 approx_kls.append(approx_kl)
 
-            if abs(np.mean(approx_kls)) > 0.05:
+            if approx_kl > cfg.target_kl:
                 break
 
         if self.lr_scheduler is not None:
@@ -349,7 +379,7 @@ class PPOAgent:
         torch.save(ckpt, path)
 
     def load(self, path, map_location=None, strict=False, verbose=True):
-        ckpt = torch.load(path, map_location=map_location if map_location else self.device)
+        ckpt = load_checkpoint(path, map_location=map_location if map_location else self.device)
 
         if isinstance(ckpt, dict):
             if "policy_state_dict" in ckpt:
@@ -361,12 +391,20 @@ class PPOAgent:
         else:
             state_dict = ckpt
 
+        # Verified Roach heads: Linear+Softplus distribution heads and final Linear value layer.
+        head_names = {"dist_mu.0.weight": "mu_head.weight", "dist_mu.0.bias": "mu_head.bias",
+                      "dist_sigma.0.weight": "sigma_head.weight", "dist_sigma.0.bias": "sigma_head.bias",
+                      "value_head.4.weight": "value_out.weight", "value_head.4.bias": "value_out.bias"}
+        expected = self.net.state_dict()
         cleaned = {}
         for k, v in state_dict.items():
             nk = k
             for prefix in ("net.", "policy.", "module."):
                 if nk.startswith(prefix):
                     nk = nk[len(prefix):]
+            nk = head_names.get(nk, nk)
+            if nk in expected and v.shape != expected[nk].shape:
+                raise ValueError(f"Checkpoint shape mismatch for {nk}: {v.shape} != {expected[nk].shape}")
             cleaned[nk] = v
 
         missing, unexpected = self.net.load_state_dict(cleaned, strict=False)
@@ -388,3 +426,9 @@ class PPOAgent:
             )
 
         return ckpt
+
+
+
+
+
+

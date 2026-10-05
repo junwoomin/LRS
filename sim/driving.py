@@ -68,7 +68,7 @@ class BicycleModel:
         self.layer=-1
         if town=='Town04'or town=='Town05':
             if z>TOWN_Z_THRESHOLD[town]:
-                self.layer=1
+                self.layer=1            
 
 
         self.id = int(id)
@@ -118,7 +118,7 @@ class BicycleModel:
         self.steer=steer
         self.throttle=throttle
         self.brake=brake
-
+        
         state = np.array([self.x, self.y, self.yaw, self.v])
         k1 = self.get_derivative(state, steer, throttle, brake)
         k2 = self.get_derivative(state + k1 * dt / 2, steer, throttle, brake)

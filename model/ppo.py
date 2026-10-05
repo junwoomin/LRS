@@ -159,9 +159,9 @@ class PPOAgent:
         self.device = self.cfg.device
 
         self.net = ActorCritic(bev_shape, state_dim, action_dim).to(self.device)
-
+        
         self.opt = optim.AdamW(self.net.parameters(), lr=self.cfg.lr, eps=1e-5)
-        self.lr_scheduler = None
+        self.lr_scheduler = None 
 
     def set_scheduler(self, total_updates):
 
@@ -205,14 +205,14 @@ class PPOAgent:
         for _ in range(cfg.update_epochs):
             for bev, state, action, old_logp, old_value, adv, ret in buffer.get_batches(cfg.minibatch_size):
                 mean, log_std, value = self.net(bev, state)
-
+                
                 # 3. 수치 안정성: log_std를 안전한 범위로 클램핑 (-20 ~ 2)
                 log_std = torch.clamp(log_std, -20, 2)
                 std = torch.exp(log_std)
 
                 dist = torch.distributions.Normal(mean, std)
                 logp = dist.log_prob(action).sum(dim=-1)
-
+                
                 # Ratio 계산 시 수치 폭발 방지
                 ratio = torch.exp(logp - old_logp)
 
@@ -238,7 +238,7 @@ class PPOAgent:
                     approx_kl = (old_logp - logp).mean().item()
                     approx_kls.append(approx_kl)
 
-            # 4. KL Early Stopping (매우 중요):
+            # 4. KL Early Stopping (매우 중요): 
             # 한 에폭 내에서 정책이 너무 많이 변하면 업데이트 중단
             if abs(np.mean(approx_kls)) > 0.05: # 기준치: 0.01~0.05
                 break

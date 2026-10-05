@@ -1,0 +1,23 @@
+{
+  "progress_per_m": 1.0,
+  "time_per_s": 0.05,
+  "cte_per_s": 0.5,
+  "heading_per_s": 0.2,
+  "overspeed_per_s": 0.5,
+  "reverse_per_s": 0.5,
+  "idle_per_s": 0.2,
+  "control_change": 0.01,
+  "collision_cost": 20.0,
+  "offroute_cost": 10.0,
+  "red_light_cost": 10.0,
+  "stalled_cost": 5.0,
+  "success_bonus": 10.0,
+  "max_cte_m": 2.5,
+  "max_speed_m_s": 11.11111111111111,
+  "idle_speed_m_s": 0.1,
+  "stall_seconds": 5.0,
+  "success_distance_m": 1.5,
+  "success_cte_m": 0.75,
+  "allowed_stop_distance_m": 5.0,
+  "max_episode_steps": 2000
+}

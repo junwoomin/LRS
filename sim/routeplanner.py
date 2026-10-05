@@ -522,11 +522,11 @@ def generate_random_routes(world_map, das_mask5, offset_x, offset_y,
         processed_route = extract_route_data(raw_route)
         processed_route = smooth_route_lane_change(
             processed_route,
-            jump_dist=3.0,
-            curve_points=15,
+            jump_dist=3.0,    
+            curve_points=15,    
             tangent_scale=0.35
         )
-
+        
         if not processed_route:
             continue
 

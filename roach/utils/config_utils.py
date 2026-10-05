@@ -27,7 +27,7 @@ def check_h5_maps(env_configs, obs_configs, carla_sh_path):
         f'--save_dir {save_dir} --pixels_per_meter {pixels_per_meter:.2f} ' \
         f'--carla_sh_path {carla_sh_path}' \
         f'\033[0m'
-
+    
     # check if pixels_per_meter match
     for env_cfg in env_configs:
         carla_map = env_cfg['env_configs']['carla_map']

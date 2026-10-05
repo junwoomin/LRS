@@ -1,121 +1,89 @@
-# LRS: Low Resource Simulation
+# LRS: Low Resource Simulation — LRS_V1
 
-[한국어](README_ko.md)
+[한국어 실행 안내](README_ko.md)
 
-**Status: research prototype with an implemented and exercised simulation, data collection, and reinforcement-learning workflow.** During development, the basic workflow collected data from multiple vehicles and ran reinforcement learning. However, learning performance remained unsatisfactory, and extracting data from all vehicles made each simulation tick slow to process. Development stopped while this bottleneck was being addressed.
+Offline BEV driving simulation with a Korean Pygame interface, fixed Roach policy inference, and a separate ego PPO trainer. Tracking imports, authentication, and uploads have been removed from the active workflow; metrics and outputs are stored locally.
 
-Historical execution and reproducibility of the current public source are separate. The public snapshot still has execution-path and checkpoint compatibility issues, and the original environment and full workflow have not been revalidated for this release.
+**Status: short execution and correctness checks passed in the recorded local environment. The short learned policy did not improve on the original policy. Long training and full-route safety remain unvalidated.**
 
-LRS explores driving simulation and behavior learning using BEV observations. The purpose is to train driving policies, use them to control NPC vehicles with varied behavior, and collect richer driving data through their interactions. The longer-term goal was to build an autonomous-driving policy for NPU deployment and use NPU inference to control these NPCs. Improved data quality and lower resource cost are research goals; neither has been measured in this release.
+![Recorded Korean GUI with two PPO updates](validation/gui_smoke/learning.png)
 
-**This is the version in which all active NPC vehicles in the RL environment are controlled by a reinforcement-learning policy.** Each NPC receives its own BEV and vehicle state, while the policy weights are shared. Pedestrians use a separate scripted model. The NPCs currently run deterministic inference from a pretrained checkpoint; the training script contains PPO updates for the ego agent, rather than independent online training for every NPC.
+This is a recorded local validation run. Git preparation did not restart the GUI or run training.
 
-## Implemented prototype
+## Prepare before running
 
-- Local bicycle-model vehicle dynamics, route generation, traffic-light logic, and pedestrian motion using CARLA/OpenDRIVE map assets.
-- Ego-aligned BEV observations with road, route, lane, vehicle history, pedestrian history, and traffic-light stop-line history.
-- Batched RL policy inference for all active NPC vehicles in `loop.py`.
-- An experimental PPO training script, BEV viewer, logging, video recording, and checkpoint output.
-- An older, separate structured-data export script retained for reference.
+Read [ASSET_SETUP.md](ASSET_SETUP.md). A fresh clone does not contain the required policy checkpoint, extracted maps, a virtual environment, or private GUI settings. The checkpoint's public download source is unresolved. **The GUI, simulator, and PPO trainer require the original NPC checkpoint even with `--from-scratch` for the ego agent.**
 
-NPU export/runtime integration, behavior-diversity controls, and measured data-quality improvements remain future work. The current policy code uses PyTorch on CUDA or CPU.
+The existing tracked map ZIP in `sim_using_data/` is preserved unchanged. Its contents were not downloaded or inspected during preparation. Extract it locally and verify the required layout before use.
 
-## Code layout
+Create the ignored local GUI settings and set an installed Korean font path:
+
+```bash
+cp gui_settings.example.json gui_settings.json
+```
+
+`requirements.txt` lists direct core imports. Essential compatibility versions are described in the setup guide; OpenCV 4.13 requires NumPy >=2 while the working environment had NumPy 1.26.4, so its dependency metadata is inconsistent. The list is not a verified install specification or lockfile. Clean dependency resolution and fresh execution remain untested. A compatible existing Python environment can be reused through `.venv --system-site-packages`; see the asset guide for project-relative setup commands. `run.sh` requires `.venv/bin/python`.
+
+## Run from the repository root
+
+Use these commands after preparing assets and the environment. The bounded CPU/CUDA examples match the scope of earlier checks; they were not rerun during Git preparation.
+
+```bash
+# Opens paused; press Start to run the selected mode
+./run.sh
+
+# Fixed policy, without learning
+./run.sh simulate.py --headless --steps 60 --device cpu
+
+# Ego PPO and independent-seed evaluation
+./run.sh ppo_train.py --steps 64 --rollout 32 --epochs 2 --batch-size 16 \
+  --episode-steps 128 --eval-steps 32 --device cpu
+
+# Bounded CUDA execution check
+./run.sh ppo_train.py --steps 4 --rollout 4 --epochs 1 --batch-size 4 \
+  --episode-steps 8 --skip-eval --device cuda
+```
+
+The default `train_w.py` command also opens the new GUI. Its retained `train()` and `experimental_main()` are historical code; use `ppo_train.py` for the validated trainer. There is no automatic five-million-step training run.
+
+Space starts/pauses, N advances one paused step, R resets the episode, F follows the vehicle, S saves the window, and Esc closes it. Select fixed-policy simulation or PPO before starting. Pausing stops physics, collection, and updates. Mode changes do not start execution automatically. See [UI_GUIDE.md](UI_GUIDE.md) for controls and recorded screenshots.
+
+Outputs default to a new `roach_run/<Town>/<timestamp>/` directory. GUI runs record JSONL metrics and summaries, and save `ppo_latest.pth` after updates. Headless simulation records the actual BEV video. CLI PPO saves final weights and evaluation records. Generated models, videos, and run directories are excluded from Git.
+
+## Implementation and contracts
 
 | Path | Role |
 | --- | --- |
-| [`train_w.py`](train_w.py) | Main experimental PPO entrypoint; run from the repository root |
-| [`loop.py`](loop.py) | Current BEV environment and shared RL policy control of NPC vehicles |
-| [`lrs_config.py`](lrs_config.py) | Local checkpoint path configuration |
-| [`roach/ppo.py`](roach/ppo.py) | Ego actor-critic, rollout buffer, PPO updates, and checkpoint handling |
-| [`roach/models/`](roach/models/) | Checkpoint policy, CNN features, distributions, and retained ROACH training components |
-| [`roach/config/config_agent.yaml`](roach/config/config_agent.yaml) | Retained ROACH policy/agent configuration |
-| [`sim/`](sim/) | Vehicle/pedestrian dynamics, routing, traffic lights, BEV maps, and geometry helpers |
-| [`data_gan.py`](data_gan.py) | Older BEV/trajectory export prototype using scripted vehicle control; requires compatibility fixes |
-| [`env.py`](env.py), [`model/ppo.py`](model/ppo.py) | Earlier environment and PPO variants; unused by the main entrypoint |
-| `sim_using_data/` | Required map assets. Download the [ZIP archive](sim_using_data/sim_using_data.zip), extract it, and use the extracted files locally |
+| `gui.py`, `simulate.py` | Korean GUI and fixed-policy simulation |
+| `ppo_train.py`, `roach/ppo.py` | Ego PPO collection, updates, checkpoint output, evaluation |
+| `task_reward.py`, `reward_config.json` | Task reward and terminated/truncated contract |
+| `loop.py`, `sim/` | Offline dynamics, routes, pedestrians, traffic lights, BEV |
+| `roach/models/`, `roach/utils/checkpoint.py` | Original policy and restricted checkpoint loading |
+| `validation/tests/`, `validation/no_tracker/` | Reproduction tests and tracker-import blocking |
+| `env.py`, `model/ppo.py`, `data_gan.py` | Earlier variants; full execution not revalidated |
 
-The ROACH wrappers and criteria are retained with the source. Some depend on an external `carla_gym` package, which is not included.
+`birdview` is float32 with shape `(15, 192, 192)` and range 0–255; the policy normalizes it by 255. `state` has six control/ego-frame velocity values. Acceleration/braking and steering form two actions in `[-1, 1]`. Default entrypoints advance simulation at 1/30 second per step.
 
-## RL observation and control
+Active NPCs share a fixed Roach policy and run deterministic batched inference on individual observations. PPO updates the ego policy. Pedestrians use scripted behavior. BEV inputs come from maps and simulated actor states, rather than camera-derived perception.
 
-| Item | Current environment contract |
-| --- | --- |
-| `birdview` | `float32`, shape `(15, 192, 192)` at the default size, values in `0..255` |
-| BEV channels | Road, route, lane, four vehicle-history masks, four pedestrian-history masks, four traffic-light-history masks |
-| `state` | Six values: throttle, steer, brake, gear, ego-frame longitudinal velocity, ego-frame lateral velocity |
-| Policy normalization | `PpoPolicy` divides `birdview` by 255 internally |
-| Action | Acceleration command and steer, each in `[-1, 1]`; acceleration is mapped to throttle/brake |
-| NPC policy | One shared pretrained policy, separate observations per NPC, batched deterministic inference |
-| Simulation step | Main training configuration advances the local dynamics at `1/30` second per step |
+Collection, old log probabilities, values, bootstrap, and updates use the same ego PPO policy. Beta actions account for the range-transform Jacobian. True terminal states disable value bootstrap; truncation uses the last observation, and GAE stops at episode boundaries. Task rewards account for newly reached route progress, time, route/heading error, control changes, and prioritized failure termination.
 
-The BEV inputs are constructed directly from map assets and simulated actor states. They are privileged simulation observations, not estimates from cameras. Traffic-light channels encode stop lines and simulated signal state; they do not perform visual traffic-light recognition.
+Legacy checkpoint loading uses `weights_only=True` and a scoped Gym/NumPy type allowlist only for its exact path and SHA256. There is no unrestricted-pickle retry. Some retained Roach criteria/wrappers require an external `carla_gym` package that is not bundled.
 
-## Local setup
+## Recorded validation and limits
 
-The original Python, CARLA, PyTorch, and Gym versions were not recorded. `requirements.txt` lists direct imports and is **not a verified dependency lockfile**. CARLA's Python API must be compatible with the local Python environment and supplied maps. Both `gym` and `gymnasium` are imported by the retained code.
+Existing records cover 12 reward/action/termination contracts, original policy equivalence, pre-update ratios near one, finite metrics, 34 changed parameter tensors, exact save/reload equality, repeated GUI operation/recovery/resize/close/reopen, CPU 64 steps with two updates, and CUDA four steps with one update. Tracker imports were blocked.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-```
+Evaluation used independent seeds 101/102/103, each with at most 32 steps (about 1.07 seconds):
 
-The main simulation reads offline map assets and advances local vehicle dynamics. Install the CARLA Python API even when using this offline loop.
+| Policy | Mean task return | Mean new route progress | Route completions |
+| --- | ---: | ---: | ---: |
+| 64-step learned | 3.463 | 5.615 m | 0/3 |
+| Original fixed | 3.851 | 6.027 m | 0/3 |
+| Uniform random | -5.144 | 3.658 m | 0/3 |
 
-### Map assets: download and extract
+**The short learned policy did not improve on the original policy.** These checks establish bounded execution and contracts, not convergence, generalization, collision safety, full-route performance, or profitability. Long training, full-route evaluation, a real CARLA server, and vehicle control were not run. NPU integration, data-quality gains, and lower resource cost are unverified research goals.
 
-The map assets are uploaded as [`sim_using_data/sim_using_data.zip`](sim_using_data/sim_using_data.zip). Download and extract the archive before running the code. Arrange the extracted files under the repository root so that paths such as `sim_using_data/data5/<Town>/` and `sim_using_data/Town/` exist. Avoid an extra nested `sim_using_data/sim_using_data/` directory. The current RL environment reads:
+[VALIDATION.md](VALIDATION.md) contains failures, corrections, evidence, and limitations. Raw logs, tracebacks, environment dumps, and model/video artifacts remain local. The public validation summary retains the measured results without personal paths or host details. Preparation checked syntax, source hashes, secret patterns, document links, and the protected Git tree identity.
 
-| Location | Required content |
-| --- | --- |
-| `sim_using_data/data5/<Town>/` | `world_offset.npy`, `das_full.png`, `lane_full.png`; `das_full_high.png` and `lane_full_high.png` for Town04/Town05 |
-| `sim_using_data/Town/` | `<Town>.xodr`, `traffic_<Town>.json`, `<Town>_ped_graph.json` |
-| `sim_using_data/height_estimator/<Town>/` | `height_low.png`, `height_high.png`, used for height/layer handling |
-
-The earlier `env.py` also refers to `data20/`. The older `data_gan.py` refers to both `data20/` and `data2/`; its constants assume 2.5 pixels/meter even though the folder is named `data2`. Confirm the actual raster scale before using that exporter.
-
-### Policy checkpoint
-
-Checkpoints are excluded from Git. Place a compatible pretrained ROACH policy at `roach/checkpoints/ckpt_11833344.pth`, or point to a local file:
-
-```bash
-export LRS_CHECKPOINT=/absolute/path/to/ckpt_11833344.pth
-```
-
-If using the original archive, its checkpoint is under `roach/log/ckpt_11833344.pth`; move it to the default location or set `LRS_CHECKPOINT` to that path. The NPC loader expects `policy_init_kwargs` with observation/action spaces, `policy_state_dict`, and `train_init_kwargs`. The custom trainer's saved checkpoint format is different, so it cannot be assumed to work directly with the NPC loader.
-
-### Prototype training entrypoint
-
-After providing map assets and a compatible checkpoint, run from the repository root:
-
-```bash
-WANDB=0 VIS=0 TOWN=Town03 TOTAL_TIMESTEPS=1000 python train_w.py
-```
-
-This is an entrypoint example, **not a successful end-to-end training result**. Resolve the limitations below before using the output as training evidence. Set `VIS=1` to enable the viewer. The script writes checkpoints under `roach_run/<Town>/`, videos under `artifacts/<Town>/`, and a log to `roach/results.log`; these outputs are ignored by Git.
-
-W&B is disabled by default. To enable it, install `wandb`, authenticate locally using `wandb login` or `WANDB_API_KEY`, and set `WANDB=1`. `WANDB_PROJECT` and `WANDB_ENTITY` configure the destination. No API key is included in the public source.
-
-## Historical performance limits and public-source limitations
-
-- **Learning performance:** the basic collection and training workflow ran, but satisfactory driving-policy performance was not achieved.
-- **Tick-processing bottleneck:** extracting observations and data from multiple vehicles made tick processing slow. Development stopped during work on this collection and processing bottleneck; no completed optimization or measured speedup is reported.
-
-The following items describe reproducibility issues in the current public source, separately from the basic workflow that ran during development.
-
-- **Public-source PPO rollout/update connection:** the current public `train_w.py` collects ego actions, values, and log probabilities from the frozen checkpoint policy while updating a separate `PPOAgent`. The trained agent does not drive the subsequent rollout. This connection needs correction before claiming valid on-policy PPO training.
-- **Checkpoint compatibility:** the two policy implementations use different parameter layouts and save metadata. Loading reports missing/unexpected keys; partial loading does not establish a valid resumed model. Older checkpoints may also require a compatible PyTorch serialization environment.
-- **Older exporter:** `data_gan.py` uses scripted controls and older `BicycleModel` calls that omit the current `id` and `town` arguments. It is not the RL-controlled NPC data pipeline and is not ready for end-to-end use.
-- **Video path:** the retained recording logic queries a `bev` field, while the current environment returns `birdview`. Video export needs further adaptation.
-- **Reproducibility:** dependency versions, supplied map assets, full simulation execution, learning convergence, dataset splits, and NPU behavior have not been validated for this public release.
-
-This cleanup removes caches, logs, generated outputs, and embedded credentials; makes the checkpoint path configurable; reuses the already loaded inference policy; and aligns the declared observation space with the actual `birdview`/six-value state. Verification covered Python syntax and isolated configuration checks. Full simulation/training was not run because the external assets and simulator/ML dependencies were unavailable in the review environment.
-
-## Research direction
-
-The intended workflow is BEV-based driving learning, interaction among policy-controlled NPCs, NPU deployment of driving policies, and collection of diverse driving trajectories. An additional planned stage would generate camera observations from structured BEV/occupancy states and train camera-based driving models from the paired data. That image-generation stage is not implemented here.
-
-[SDV / FMTC Studio](https://github.com/junwoomin/SDV) was intended to provide the configuration and experiment interface. End-to-end integration remains planned.
-
-Related image-generation reference: [UniScene paper](https://openaccess.thecvf.com/content/CVPR2025/html/Li_UniScene_Unified_Occupancy-centric_Driving_Scene_Generation_CVPR_2025_paper.html) and [author repository](https://github.com/Arlo0o/UniScene-Unified-Occupancy-centric-Driving-Scene-Generation). UniScene is an external reference, not a dependency integrated into this release.
+The checkpoint's public provenance, a clean environment install, and full execution from a fresh checkout remain unresolved. The existing [LICENSE](LICENSE) is retained.

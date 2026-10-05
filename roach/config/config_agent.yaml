@@ -1,6 +1,4 @@
 entry_point: roach.rl_birdview_agent:RlBirdviewAgent
-wb_run_path: null
-wb_ckpt_step: null
 env_wrapper:
   entry_point: roach.utils.rl_birdview_wrapper:RlBirdviewWrapper
   kwargs:

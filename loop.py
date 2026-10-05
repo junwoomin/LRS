@@ -16,8 +16,11 @@ from sim.Global_Dynamic_MapManager import *
 import gymnasium as gym
 from gymnasium import spaces
 
-from lrs_config import policy_checkpoint_path
+from omegaconf import OmegaConf
 from roach.models.ppo_policy import PpoPolicy
+
+from omegaconf import OmegaConf
+import torch as th
 
 import torch
 import time
@@ -117,13 +120,12 @@ class BEVPathFollowEnv(gym.Env):
         seed                = None,
         logger              = None,
         FIXED_DT            = 0.01,
+        device              = None,
         initial_zoom        = 2.0,        # ★ 뷰어 초기 확대 배율
-        checkpoint_path     = None,
     ):
         super().__init__()
         self.logger = logger
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.checkpoint_path = policy_checkpoint_path(checkpoint_path)
+        self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
 
         self.town        = town
         self.vis         = bool(vis)
@@ -205,7 +207,13 @@ class BEVPathFollowEnv(gym.Env):
         self.current_lookahead = 5.0
 
         # ── 정책 네트워크 로드 ────────────────────────────────────────
-        self._policy, _ = PpoPolicy.load(self.checkpoint_path)
+        cfgs = OmegaConf.load("roach/config/config_agent.yaml")
+        cfgs = OmegaConf.to_container(cfgs)
+
+        _train_cfg = cfgs["training"]
+        _ckpt = "roach/log/ckpt_11833344.pth"
+
+        self._policy, _train_cfg["kwargs"] = PpoPolicy.load(_ckpt, device=self.device)
         self._policy = self._policy.eval().to(self.device)
 
         # ── 데이터 경로 (PPM 기반 자동 해석) ─────────────────────────
@@ -261,8 +269,10 @@ class BEVPathFollowEnv(gym.Env):
         canvas[lane_merged > 10] = (255, 255, 255)
         self.global_canvas = canvas
 
-        self.height_low  = cv2.imread(self.height_low_path,  cv2.IMREAD_GRAYSCALE)
-        self.height_high = cv2.imread(self.height_high_path, cv2.IMREAD_GRAYSCALE)
+        self.height_low = cv2.imread(self.height_low_path, cv2.IMREAD_GRAYSCALE) if os.path.exists(self.height_low_path) else None
+        self.height_high = cv2.imread(self.height_high_path, cv2.IMREAD_GRAYSCALE) if os.path.exists(self.height_high_path) else None
+        if self.town in ("Town04", "Town05") and (self.height_low is None or self.height_high is None):
+            raise FileNotFoundError(f"Required height maps missing for {self.town}")
 
         # ── 신호등 마스크 (★ 단채널 uint8) ───────────────────────────
         self.current_tl_mask = np.zeros((self.map_h, self.map_w), dtype=np.uint8)
@@ -514,8 +524,10 @@ class BEVPathFollowEnv(gym.Env):
         terminated = False
         truncated  = False
 
-        acc   = action[0][0]
-        steer = action[0][1]
+        action = np.asarray(action, dtype=np.float32).reshape(-1)
+        if action.size != 2 or not np.all(np.isfinite(action)):
+            raise ValueError("Action must contain two finite values: acceleration and steering")
+        acc, steer = action
         if acc >= 0.0:
             throttle, brake = acc, 0.0
         else:

@@ -1,3 +1,4 @@
+from roach.utils.checkpoint import load_checkpoint
 from typing import Union, Dict, Tuple, Any
 from functools import partial
 import gym
@@ -220,9 +221,9 @@ class PpoPolicy(nn.Module):
         )
         return init_kwargs
     @classmethod
-    def load(cls, path):
-        device = 'cuda' if th.cuda.is_available() else 'cpu'
-        saved_variables = th.load(path, map_location=device)
+    def load(cls, path, device=None):
+        device = device or ('cuda' if th.cuda.is_available() else 'cpu')
+        saved_variables = load_checkpoint(path, map_location=device)
 
         init_kwargs = saved_variables['policy_init_kwargs']
 
@@ -252,4 +253,6 @@ class PpoPolicy(nn.Module):
 
         model.load_state_dict(state_dict)
         model.to(device)
+        model.device = str(device)
+        model.action_dist.device = str(device)
         return model, saved_variables['train_init_kwargs']

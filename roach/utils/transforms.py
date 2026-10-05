@@ -54,7 +54,7 @@ def carla_rot_to_mat(carla_rotation):
     """
     Transform rpy in carla.Rotation to rotation matrix in np.array
 
-    :param carla_rotation: carla.Rotation
+    :param carla_rotation: carla.Rotation 
     :return: np.array rotation matrix
     """
     roll = np.deg2rad(carla_rotation.roll)

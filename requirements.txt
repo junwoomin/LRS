@@ -1,9 +1,11 @@
-# Direct dependencies of train_w.py, loop.py, and sim/.
-# Original dependency versions were not recorded; this is not a tested lockfile.
+# Direct core imports; this is NOT a verified install specification or lockfile.
+# Exact observed versions are in ASSET_SETUP.md.
+# The recorded OpenCV 4.13 / NumPy 1.26 environment has inconsistent dependency
+# metadata, so copying all observed pins into pip requirements is not valid.
 numpy
 torch
 opencv-python
-pygame
+pygame==2.6.1
 shapely
 networkx
 carla
@@ -11,3 +13,4 @@ gym
 gymnasium
 omegaconf
 tqdm
+stable-baselines3==2.7.0

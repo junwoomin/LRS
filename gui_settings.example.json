@@ -1,0 +1,11 @@
+{
+  "window_size": [
+    1280,
+    820
+  ],
+  "font_path": "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+  "minimum_window_size": [
+    1024,
+    760
+  ]
+}

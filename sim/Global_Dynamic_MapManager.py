@@ -12,7 +12,7 @@ VEHICLE_LENGTH_M = 4.69
 VEHICLE_WIDTH_M  = 2.0
 HEIGHT_FILTER_M  = 4.0                     # ego 높이 기준 ± 필터 범위
 HEIGHT_SENTINEL  = -9999.0                 # "차량 없음" 표시용 높이 값
-
+ 
 # 레이어가 나뉘는 Town 목록
 LAYERED_TOWNS = {"Town04", "Town05"}
 
@@ -29,39 +29,39 @@ def make_ego_local_mask(
     value: int = 255,
 ) -> np.ndarray:
     mask = np.zeros((canvas_h, canvas_w), dtype=np.uint8)
-
+ 
     length_px = max(1, int(np.round(length_m * scale * ppm)))
     width_px  = max(1, int(np.round(width_m  * scale * ppm)))
-
+ 
     if center is None:
         u0 = canvas_w / 2.0
         v0 = canvas_h / 2.0 + move_px
     else:
         u0, v0 = center
-
+ 
     half_l = length_px / 2.0
     half_w = width_px  / 2.0
-
+ 
     pts = np.array([
         [-half_w,  half_l],
         [ half_w,  half_l],
         [ half_w, -half_l],
         [-half_w, -half_l],
     ], dtype=np.float32)
-
+ 
     yaw_rad = yaw_rad + np.deg2rad(90)
     c = np.cos(yaw_rad)
     s = np.sin(yaw_rad)
     R = np.array([[c, -s], [s, c]], dtype=np.float32)
-
+ 
     pts = pts @ R.T
     pts[:, 0] += u0
     pts[:, 1] += v0
     pts = np.round(pts).astype(np.int32)
     cv2.fillConvexPoly(mask, pts, value)
     return mask
-
-
+ 
+ 
 def check_ego_collision(
     ego_local_mask: np.ndarray,
     ped_local_mask: np.ndarray,
@@ -72,8 +72,8 @@ def check_ego_collision(
     if ped_overlap_px >= overlap_px_th:
         return True
     return False
-
-
+ 
+ 
 def check_ego_out_of_road(
     ego_local_mask: np.ndarray,
     das_local_bev: np.ndarray,
@@ -86,8 +86,8 @@ def check_ego_out_of_road(
     outside_px = int(np.count_nonzero(ego_bin & ~(das_local_bev > 0)))
     out_of_road_ratio = outside_px / float(ego_px)
     return out_of_road_ratio >= out_of_road_ratio_th, out_of_road_ratio
-
-
+ 
+ 
 def draw_obb(mask, cx, cy, hl, hw, theta, value=255):
     c = math.cos(theta)
     s = math.sin(theta)
@@ -101,8 +101,8 @@ def draw_obb(mask, cx, cy, hl, hw, theta, value=255):
     pts[:, 1] += cy
     pts_i = np.round(pts).astype(np.int32)
     cv2.fillConvexPoly(mask, pts_i, int(value))
-
-
+ 
+ 
 def ensure_u8_mask(mask):
     if mask.dtype == np.bool_:
         return mask.astype(np.uint8) * 255
@@ -110,8 +110,8 @@ def ensure_u8_mask(mask):
     if m.max() <= 1:
         m = m * 255
     return m
-
-
+ 
+ 
 def make_local_bev_ego_aligned(
     global_mask: np.ndarray,
     center_px: Tuple[float, float],
@@ -127,12 +127,12 @@ def make_local_bev_ego_aligned(
     k  = out_mpp * pixels_per_meter
     c  = math.cos(ego_yaw_rad)
     s  = math.sin(ego_yaw_rad)
-
+ 
     M = np.array([
         [-s * k, -c * k, center_px[0] + k * (s * u0 + c * v0)],
         [ c * k, -s * k, center_px[1] + k * (-c * u0 + s * v0)],
     ], dtype=np.float32)
-
+ 
     # float32 height mask도 처리 가능하도록 flags 분기
     if global_mask.dtype == np.float32:
         flags = cv2.INTER_NEAREST | cv2.WARP_INVERSE_MAP
@@ -140,15 +140,15 @@ def make_local_bev_ego_aligned(
     else:
         flags = cv2.INTER_NEAREST | cv2.WARP_INVERSE_MAP
         border_val = int(fill)
-
+ 
     return cv2.warpAffine(
         global_mask, M, (out_size, out_size),
         flags=flags,
         borderMode=cv2.BORDER_CONSTANT,
         borderValue=border_val,
     )
-
-
+ 
+ 
 def _extract_ped_world_pos(ped) -> Tuple[Optional[float], Optional[float]]:
     """보행자 객체에서 월드 좌표 (x, y) 추출."""
     if hasattr(ped, "x") and hasattr(ped, "y"):
@@ -159,8 +159,8 @@ def _extract_ped_world_pos(ped) -> Tuple[Optional[float], Optional[float]]:
         if "x" in ped and "y" in ped:
             return float(ped["x"]), float(ped["y"])
     return None, None
-
-
+ 
+ 
 def _extract_ped_z(ped) -> float:
     """보행자 객체에서 z 좌표 추출. 없으면 0.0."""
     if hasattr(ped, "z"):
@@ -170,14 +170,14 @@ def _extract_ped_z(ped) -> float:
     if isinstance(ped, dict) and "pos" in ped and len(ped["pos"]) >= 3:
         return float(ped["pos"][2])
     return 0.0
-
-
+ 
+ 
 # ═══════════════════════════════════════════════════════
 #  VehicleFrame: 한 프레임의 글로벌 vehicle 맵
 #  - instance_mask (uint16) : 픽셀별 vehicle id (0 = 비어 있음)
 #  - height_mask   (float32): 픽셀별 vehicle z 값 (HEIGHT_SENTINEL = 비어 있음)
 # ═══════════════════════════════════════════════════════
-
+ 
 class VehicleFrame:
     __slots__ = ("instance_mask", "height_mask", "collided_vehicle_ids")
 
@@ -190,8 +190,8 @@ class VehicleFrame:
     def occupancy(self) -> np.ndarray:
         """bool mask: 차량이 존재하는 픽셀."""
         return self.instance_mask > 0
-
-
+ 
+ 
 class PedFrame:
     """한 시점의 글로벌 ped 맵: occupancy + height."""
     __slots__ = ("occupancy_mask", "height_mask")
