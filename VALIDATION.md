@@ -1,61 +1,65 @@
-# 검증 결과 요약
+# Validation results
 
-이미 수행한 짧은 실행과 계약 검증을 요약합니다. 이번 게시 준비에서는 GUI·시뮬레이션·학습을 재실행하지 않았습니다. 원시 로그·traceback·개인 경로·환경 덤프는 공개 대상에서 제외했으며 원본 로컬 기록을 보존합니다.
+**English** | [한국어](VALIDATION_ko.md)
 
-## 구현과 검증 범위
+[Project overview](README.md)
 
-- wandb import·인증·원격 기록·업로드를 제거하고 `LocalRun`의 로컬 JSON/JSONL 기록으로 전환했습니다.
-- `simulate.py`, `TaskEnv`/`task_reward.py`, `ppo_train.py`, 별도 한글 Pygame GUI를 분리했습니다. 기본 `train_w.py`는 GUI를 열며 대규모 학습을 자동 시작하지 않습니다.
-- 실제 관측은 `birdview` (15,192,192), `state` (6,)이고 행동은 가속/제동·조향 2값입니다. 같은 ego 정책으로 수집과 PPO 갱신을 수행합니다.
-- legacy checkpoint는 정확한 경로·해시가 일치할 때만 제한된 Gym/NumPy 타입을 허용하며 `weights_only=True`를 유지합니다. unrestricted pickle fallback은 없습니다.
+This document summarizes previously completed short execution and contract checks. Publishing preparation did not rerun the GUI, simulation, or training. Raw logs, tracebacks, personal paths, and environment dumps are excluded from public distribution; original local records are preserved.
 
-| 검증 | 기존 실행에서 확인한 결과 |
+## Implementation and validation scope
+
+- Removed wandb imports, authentication, remote tracking, and uploads; replaced them with local JSON/JSONL records through `LocalRun`.
+- Separated `simulate.py`, `TaskEnv`/`task_reward.py`, `ppo_train.py`, and the Korean Pygame GUI. Default `train_w.py` opens the GUI without automatically launching large-scale training.
+- Actual observations are `birdview` (15,192,192) and `state` (6,); actions are two acceleration/braking and steering values. Collection and PPO updates use the same ego policy.
+- Legacy checkpoint loading allows restricted Gym/NumPy types only for the exact path/hash and retains `weights_only=True`. There is no unrestricted-pickle fallback.
+
+| Check | Recorded result |
 | --- | --- |
-| 보상 반례, bounded Beta, terminated/truncated GAE | 12개 계약 테스트 통과 |
-| 원본 정책과 PPO 초기 상태 | head 의미/shape·BEV 정규화·Beta 파라미터·가치·결정론적 행동 동등성 통과 |
-| 실제 PPO 회귀 | 갱신 전 확률비≈1, 유한 loss/KL/logprob, 34개 파라미터 텐서 변경, 저장/재로드 동등성 |
-| 제한 checkpoint 로딩 | 원본의 허용된 경로·해시에서 성공, 다른 경로의 legacy metadata 거부 |
-| 고정 정책 headless/기존 뷰어 | 각각 8스텝, 실제 1.111m 이동, BEV 영상 8프레임 디코드, 정상 종료 |
-| CPU PPO | 64스텝·2갱신; 갱신 전 ratio오차 9.11e-5/6.03e-5, KL .01314/.01235 |
-| CUDA PPO | 4스텝·1갱신; ratio오차 .000122, 유한 지표, 34텐서 변경, 저장/재로드 동일 |
-| 새 GUI | 시작/정지·물리 멈춤·한스텝·같은 seed 반복reset·모드변경·실제2회PPO갱신·모델저장·오류복구·resize·키포커스·화면저장·종료/재실행 통과 |
-| tracking 없는 실행 | 테스트에서 wandb import를 차단한 상태로 성공 |
+| Reward counterexamples, bounded Beta, terminated/truncated GAE | 12 contract tests passed |
+| Original policy and PPO initialization | Equivalent head semantics/shapes, BEV normalization, Beta parameters, values, and deterministic actions |
+| Actual PPO regression | Pre-update probability ratios near one, finite loss/KL/log probabilities, 34 changed parameter tensors, exact save/reload equality |
+| Restricted checkpoint loading | Succeeded for the original allowed path/hash; rejected legacy metadata at another path |
+| Fixed-policy headless/original viewer | Eight steps each, actual movement of 1.111 m, eight decoded BEV video frames, clean exit |
+| CPU PPO | 64 steps/two updates; pre-update ratio errors 9.11e-5/6.03e-5, KL .01314/.01235 |
+| CUDA PPO | Four steps/one update; ratio error .000122, finite metrics, 34 changed tensors, identical save/reload |
+| New GUI | Passed start/pause, halted physics, single step, repeated same-seed reset, mode changes, two actual PPO updates, model saving, error recovery, resize, keyboard focus, screenshots, exit/reopen |
+| Execution without tracking | Succeeded with wandb imports blocked |
 
-재현 테스트 코드는 `validation/tests/`와 `validation/no_tracker/`에 유지합니다. 실제 GUI 캡처는 [UI_GUIDE.md](UI_GUIDE.md)에 있습니다. 테스트는 지도·checkpoint·호환 환경을 준비한 뒤에만 실행할 수 있으며 일부는 GUI 또는 짧은 정책 갱신을 실행합니다.
+Reproduction tests remain in `validation/tests/` and `validation/no_tracker/`. Actual GUI screenshots are linked in the [GUI guide](UI_GUIDE.md). Tests require prepared maps, checkpoint, and a compatible environment; some open a GUI or perform short policy updates.
 
-## 발견한 실패와 수정의 요약
+## Observed failures and corrections
 
-| 문제 | 수정 / 확인 |
+| Issue | Correction / verification |
 | --- | --- |
-| legacy checkpoint의 Gym/NumPy metadata 로딩 실패 | 정확한 경로·해시에 제한된 타입 allowlist 적용 |
-| 최초 기존 학습의 head 불일치·비유한 KL·빈 영상 | 동일 정책 수집/갱신과 원본 head 의미/shape·입력/분포 정합성 수정; 실제 RGB BEV 영상 사용 |
-| 이전 Pygame의 synthetic mouse 이벤트 손상 | Pygame 2.6.1에서 실제 GUI 조작 검증 통과 |
-| 같은 seed의 반복 reset 경로 불일치 | 실제 reset 직전에 seed 적용 후 경로 동등성 통과 |
-| 첫 CUDA 실행의 single/batch ratio오차 .001126 | 해당 프로세스 cuDNN TF32를 끈 뒤 .000122로 감소, 실제 짧은 진입점 통과 |
+| Failed Gym/NumPy metadata loading in legacy checkpoint | Applied a restricted type allowlist for the exact path/hash |
+| Original training head mismatch, non-finite KL, empty video | Corrected same-policy collection/updates and original head semantics/shapes, inputs, and distribution; used actual RGB BEV video |
+| Synthetic mouse-event corruption in older Pygame | Actual GUI control checks passed on Pygame 2.6.1 |
+| Different routes on repeated same-seed reset | Applied seed immediately before actual reset; route equivalence passed |
+| Initial CUDA single/batch ratio error .001126 | Disabling cuDNN TF32 within the process reduced it to .000122; the actual short entrypoint passed |
 
-GUI 오류복구 검증은 의도적으로 NaN 행동을 주입한 시험입니다. [오류 화면](validation/gui_smoke/error.png)은 일반 사용 중의 실패를 나타내는 성능 결과가 아닙니다.
+GUI recovery testing intentionally injected NaN actions. The [error screenshot](validation/gui_smoke/error.png) does not represent a failure observed during ordinary use.
 
-## 독립 seed 평가
+## Independent-seed evaluation
 
-학습 seed는 0, 평가 seed는 101/102/103입니다. 각 정책에 같은 seed의 경로/NPC를 적용했고 random 행동은 별도 RNG를 사용했습니다. 정책별 최대 32스텝, simulation time 최대 약 1.07초입니다. 평가 중 학습은 하지 않았습니다.
+Training seed was 0; evaluation seeds were 101/102/103. Policies used routes/NPCs from the same seeds; random actions used a separate RNG. Each policy ran for at most 32 steps, about 1.07 seconds of simulation time. No learning occurred during evaluation.
 
-| 정책 | 평균 task return | 평균 새 경로 진행(m) | 평균 속도(m/s) | 평균 경로 진행률 | 충돌 | 경로이탈 종료 | 완료 |
+| Policy | Mean task return | Mean new route progress (m) | Mean speed (m/s) | Mean route progress | Collisions | Route-departure terminations | Completions |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 64스텝 learned | 3.463 | 5.615 | 5.147 | 1.156% | 0/3 | 0/3 | 0/3 |
-| 원본 fixed | 3.851 | 6.027 | 5.549 | 1.242% | 0/3 | 0/3 | 0/3 |
-| random | -5.144 | 3.658 | 4.630 | 0.767% | 0/3 | 2/3 | 0/3 |
+| 64-step learned | 3.463 | 5.615 | 5.147 | 1.156% | 0/3 | 0/3 | 0/3 |
+| Original fixed | 3.851 | 6.027 | 5.549 | 1.242% | 0/3 | 0/3 | 0/3 |
+| Random | -5.144 | 3.658 | 4.630 | 0.767% | 0/3 | 2/3 | 0/3 |
 
-random은 경로 거리오차>2.5m로 seed102/103에서 각각24/29스텝에 종료됐습니다. 도로 마스크 이탈과 경로이탈 종료는 구분합니다.
+The random policy terminated for route-distance error >2.5 m at steps 24/29 for seeds 102/103 respectively. Road-mask departure and route-departure termination are distinct.
 
-**이번 짧은 학습은 원본 정책을 개선하지 않았습니다.** 이 결과는 학습·종료·저장 계약의 짧은 실행 확인이며 일반화·충돌 안전성·전체 경로 완주 성능의 검증이 아닙니다. 수익이나 성능 향상 결과로 해석할 수 없습니다.
+**This short training did not improve on the original policy.** These results confirm bounded execution of learning, termination, and saving contracts. They do not establish generalization, collision safety, or full-route completion, and must not be interpreted as profitability or performance gains.
 
-## 남은 한계와 재현 조건
+## Remaining limits and reproduction conditions
 
-- 장시간 학습, 전체 경로, 다수 타운 일반화 및 모든 신호등 교차/충돌 상황을 평가하지 않았습니다. 실제 CARLA 서버·실차 제어·NPU 통합도 미검증입니다.
-- 보상은 오프라인 지도와 기존 충돌 마스크에 의존합니다. 빨간 신호 위반은 경로에 연결된 ID/정지선이 있는 경우에만 판단합니다.
-- PPO checkpoint 재시작 시 optimizer/rollout 상태는 새로 생성합니다. GUI의 CPU 갱신 중에는 잠시 렌더링이 멈출 수 있습니다.
-- 원본 checkpoint의 공개 출처·서명·배포 권한은 미확인입니다. 파일 해시 일치는 출처 인증을 대신하지 않습니다. [ASSET_SETUP.md](ASSET_SETUP.md)의 별도 준비가 필요합니다.
-- 보존된 지도 ZIP 내용은 이번 게시 준비에서 다운로드·압축해제·검증하지 않았습니다.
-- 깨끗한 환경 설치와 NumPy 2의 legacy checkpoint 호환성은 미검증입니다. 기존 실행의 OpenCV 4.13은 NumPy>=2를 요구하는 metadata를 가졌지만 NumPy 1.26.4에서 실행됐으므로, 관측 버전 전체를 검증된 설치 lockfile로 제시하지 않습니다.
+- Long training, full routes, multi-town generalization, and all traffic-light crossing/collision scenarios were not evaluated. A real CARLA server, vehicle control, and NPU integration remain unvalidated.
+- Rewards depend on offline maps and existing collision masks. Red-light violations are assessed only when route-linked IDs/stop lines exist.
+- Restarting PPO from a checkpoint recreates optimizer/rollout state. CPU updates may briefly halt GUI rendering.
+- The original checkpoint's public provenance, signature, and redistribution permission are unconfirmed. Matching a file hash does not authenticate its source. Separate preparation is required; see [Asset and environment setup](ASSET_SETUP.md).
+- The preserved map ZIP was not downloaded, extracted, or verified during publishing preparation.
+- Clean installation and NumPy 2 legacy-checkpoint compatibility remain untested. Recorded OpenCV 4.13 metadata requires NumPy >=2, but execution used NumPy 1.26.4. The complete observed version set is therefore not presented as a verified installation lockfile.
 
-게시 준비에서는 문법·문서 링크·비밀/개인경로 패턴·코드 바이트 동일성·보호 tree 동일성을 정적으로 확인했습니다. 원시 자료 제외는 공개 증거를 요약한 것이며 새로운 실행 결과를 추가하지 않습니다.
+Publishing preparation statically checked syntax, document links, secret/personal-path patterns, byte-for-byte code identity, and protected-tree identity. Excluding raw material summarizes the public evidence and does not add new execution results.

@@ -1,41 +1,39 @@
 # LRS: Low Resource Simulation — LRS_V1
 
-[한국어 실행 안내](README_ko.md)
-
-Offline BEV driving simulation with a Korean Pygame interface, fixed Roach policy inference, and a separate ego PPO trainer. Tracking imports, authentication, and uploads have been removed from the active workflow; metrics and outputs are stored locally.
-
-**Status: short execution and correctness checks passed in the recorded local environment. The short learned policy did not improve on the original policy. Long training and full-route safety remain unvalidated.**
+**English** | [한국어](README_ko.md)
 
 ![Recorded Korean GUI with two PPO updates](validation/gui_smoke/learning.png)
 
-This is a recorded local validation run. Git preparation did not restart the GUI or run training.
+An offline BEV driving simulator with fixed Roach policy inference, a separate ego PPO trainer, and a Korean Pygame interface. No wandb installation, login, or upload is required. The existing remote maps in `sim_using_data/` are preserved. Original maps, models, and historical run records remain local and are excluded from new commits.
 
-## Prepare before running
+**Status: short execution and contract checks passed in the recorded local environment. The short learned policy did not improve on the original policy. Long training and full-route safety remain unvalidated.**
 
-Read [ASSET_SETUP.md](ASSET_SETUP.md). A fresh clone does not contain the required policy checkpoint, extracted maps, a virtual environment, or private GUI settings. The checkpoint's public download source is unresolved. **The GUI, simulator, and PPO trainer require the original NPC checkpoint even with `--from-scratch` for the ego agent.**
+## Required preparation
 
-The existing tracked map ZIP in `sim_using_data/` is preserved unchanged. Its contents were not downloaded or inspected during preparation. Extract it locally and verify the required layout before use.
-
-Create the ignored local GUI settings and set an installed Korean font path:
+A fresh clone does not contain a virtual environment, extracted maps, policy weights, or private settings. Follow [Asset and environment setup](ASSET_SETUP.md) first. The original Roach checkpoint's public source remains unresolved: the GUI, simulator, and PPO trainer cannot run without it. `--from-scratch` still requires the original NPC policy checkpoint.
 
 ```bash
 cp gui_settings.example.json gui_settings.json
 ```
 
-`requirements.txt` lists direct core imports. Essential compatibility versions are described in the setup guide; OpenCV 4.13 requires NumPy >=2 while the working environment had NumPy 1.26.4, so its dependency metadata is inconsistent. The list is not a verified install specification or lockfile. Clean dependency resolution and fresh execution remain untested. A compatible existing Python environment can be reused through `.venv --system-site-packages`; see the asset guide for project-relative setup commands. `run.sh` requires `.venv/bin/python`.
+The private `gui_settings.json` is ignored by Git. Set its font path to an installed Korean font. `requirements.txt` lists direct core dependencies; it is not a verified installation specification or lockfile. OpenCV 4.13 metadata requires NumPy >=2, but the recorded environment used NumPy 1.26.4. Clean installation and NumPy 2 checkpoint compatibility have not been tested. The environment commands below require a compatible existing Python environment.
 
-## Run from the repository root
-
-Use these commands after preparing assets and the environment. The bounded CPU/CUDA examples match the scope of earlier checks; they were not rerun during Git preparation.
+## Quick start
 
 ```bash
-# Opens paused; press Start to run the selected mode
 ./run.sh
+```
 
-# Fixed policy, without learning
+The Pygame window opens **paused**. Press Start to run the fixed policy. Select PPO training in the upper-right corner to switch to policy collection and updates, then press Start. The GUI uses CPU.
+
+```bash
+# Explicit GUI entrypoint
+./run.sh gui.py
+
+# Headless fixed-policy simulation: 60 steps, no learning
 ./run.sh simulate.py --headless --steps 60 --device cpu
 
-# Ego PPO and independent-seed evaluation
+# Short PPO training and independent-seed evaluation
 ./run.sh ppo_train.py --steps 64 --rollout 32 --epochs 2 --batch-size 16 \
   --episode-steps 128 --eval-steps 32 --device cpu
 
@@ -44,37 +42,69 @@ Use these commands after preparing assets and the environment. The bounded CPU/C
   --episode-steps 8 --skip-eval --device cuda
 ```
 
-The default `train_w.py` command also opens the new GUI. Its retained `train()` and `experimental_main()` are historical code; use `ppo_train.py` for the validated trainer. There is no automatic five-million-step training run.
+The default `train_w.py` command also opens the new GUI. Use `ppo_train.py` for new training. Its retained `train()` and `experimental_main()` functions are historical comparison code, outside the recommended execution path. No five-million-step training run starts automatically.
 
-Space starts/pauses, N advances one paused step, R resets the episode, F follows the vehicle, S saves the window, and Esc closes it. Select fixed-policy simulation or PPO before starting. Pausing stops physics, collection, and updates. Mode changes do not start execution automatically. See [UI_GUIDE.md](UI_GUIDE.md) for controls and recorded screenshots.
+## Controls and outputs
 
-Outputs default to a new `roach_run/<Town>/<timestamp>/` directory. GUI runs record JSONL metrics and summaries, and save `ppo_latest.pth` after updates. Headless simulation records the actual BEV video. CLI PPO saves final weights and evaluation records. Generated models, videos, and run directories are excluded from Git.
+- Start/pause: button or Space. Pausing stops physics, policy collection, and updates.
+- New episode: button or R. Recreates the route with the same seed and resets vehicle state, while retaining weights already updated in the GUI.
+- Single step: button or N. Advances one step while paused.
+- Map: mouse wheel to zoom; drag or arrow keys to pan; F to follow the ego vehicle.
+- Screenshot: button or S. Saves only the current window as a PNG.
+- Keyboard focus: Tab and Enter. Exit: button, window close, or Esc.
 
-## Implementation and contracts
+The default output directory is `roach_run/<Town>/<timestamp>/`. Use `--output` to choose a new output directory. The GUI saves `metrics.jsonl`, `summary.json`, screenshots, and `ppo_latest.pth` after each PPO update. Headless simulation saves actual BEV video to `simulation.mp4`. CLI training saves `ppo_final.pth`, configuration, metrics, and independent evaluation results. Existing `roach/results.log` and the original checkpoint are not overwritten.
+
+The default window is 1280×820, with a minimum of 1024×760. Configure font and size in your local `gui_settings.json`, copied from `gui_settings.example.json`. See [GUI guide](UI_GUIDE.md) for details and recorded screenshots.
+
+## Structure and observations
 
 | Path | Role |
 | --- | --- |
 | `gui.py`, `simulate.py` | Korean GUI and fixed-policy simulation |
 | `ppo_train.py`, `roach/ppo.py` | Ego PPO collection, updates, checkpoint output, evaluation |
-| `task_reward.py`, `reward_config.json` | Task reward and terminated/truncated contract |
+| `task_reward.py`, `reward_config.json` | Task rewards and terminated/truncated contract |
 | `loop.py`, `sim/` | Offline dynamics, routes, pedestrians, traffic lights, BEV |
 | `roach/models/`, `roach/utils/checkpoint.py` | Original policy and restricted checkpoint loading |
 | `validation/tests/`, `validation/no_tracker/` | Reproduction tests and tracker-import blocking |
 | `env.py`, `model/ppo.py`, `data_gan.py` | Earlier variants; full execution not revalidated |
 
-`birdview` is float32 with shape `(15, 192, 192)` and range 0–255; the policy normalizes it by 255. `state` has six control/ego-frame velocity values. Acceleration/braking and steering form two actions in `[-1, 1]`. Default entrypoints advance simulation at 1/30 second per step.
+`birdview` is float32 with shape `(15, 192, 192)` and range 0–255; the policy normalizes it by 255. `state` contains six control and ego-frame velocity values. Default entrypoints advance simulation by 1/30 second per step.
 
-Active NPCs share a fixed Roach policy and run deterministic batched inference on individual observations. PPO updates the ego policy. Pedestrians use scripted behavior. BEV inputs come from maps and simulated actor states, rather than camera-derived perception.
+## PPO and rewards
 
-Collection, old log probabilities, values, bootstrap, and updates use the same ego PPO policy. Beta actions account for the range-transform Jacobian. True terminal states disable value bootstrap; truncation uses the last observation, and GAE stops at episode boundaries. Task rewards account for newly reached route progress, time, route/heading error, control changes, and prioritized failure termination.
+Collection, old log probabilities, value estimates, bootstrap, and updates use the same `PPOAgent`. Checks compared the original Roach head semantics and shapes, BEV `/255` normalization, Softplus Beta distribution, and deterministic actions. Acceleration/braking and steering form two actions in `[-1, 1]`. Log probabilities include the range-transform Jacobian.
 
-Legacy checkpoint loading uses `weights_only=True` and a scoped Gym/NumPy type allowlist only for its exact path and SHA256. There is no unrestricted-pickle retry. Some retained Roach criteria/wrappers require an external `carla_gym` package that is not bundled.
+`TaskEnv` retains the existing simulation and observations while providing separate training rewards and a five-element step return. Fixed-policy simulation retains its original rewards.
 
-## Recorded validation and limits
+| Reward signal | Units and behavior |
+| --- | --- |
+| New route progress | Rewards newly reached route distance in meters; repeated travel over the same distance earns no additional progress reward |
+| Time, route/heading error | Costs proportional to actual `FIXED_DT`, normally 1/30 second |
+| Speeding, reverse motion, unnecessary stopping | Prevents rewards from merely increasing speed or remaining stopped near the route center |
+| Control changes | Squared change costs for consecutive acceleration and steering values |
+| Collision, road/route departure, red-light crossing, prolonged standstill | Terminates with one prioritized failure cost; removes same-step progress/completion bonuses |
+| Route completion | Bonus and termination require endpoint distance, route error, and heading conditions together |
 
-Existing records cover 12 reward/action/termination contracts, original policy equivalence, pre-update ratios near one, finite metrics, 34 changed parameter tensors, exact save/reload equality, repeated GUI operation/recovery/resize/close/reopen, CPU 64 steps with two updates, and CUDA four steps with one update. Tracker imports were blocked.
+Rewards use actual simulated position, route, collision/road masks, traffic-light IDs and stop lines, and NPC positions. No extra sensors are assumed. When stopping is required by a red light or a nearby NPC ahead, unnecessary-stop costs and standstill termination are waived without awarding a positive stopping reward. Each step's reward components and raw task metrics are logged to JSONL.
 
-Evaluation used independent seeds 101/102/103, each with at most 32 steps (about 1.07 seconds):
+```bash
+# After editing reward_config.json
+./run.sh ppo_train.py --steps 64 --reward-config reward_config.json
+
+# Resume from saved weights; optimizer state is recreated
+./run.sh ppo_train.py --steps 64 --checkpoint roach_run/<run-directory>/ppo_final.pth
+```
+
+`reward_config.json` contains the full default reward configuration. CLI `--episode-steps`, when supplied, overrides the file's step limit. Evaluation uses a separate `--eval-steps` limit. The GUI uses default reward settings and displays the actual components in its reward tab. `--from-scratch` initializes new ego PPO weights; NPCs continue using the original Roach checkpoint.
+
+True terminal states disable value bootstrap. Time-limit truncation uses the last observation's value. GAE stops at episode boundaries. For consistency between CUDA collection and batch recomputation, cuDNN TF32 is disabled within the training process. Drivers and system settings are not changed.
+
+## Validation and current limits
+
+Recorded checks cover CPU 64 steps/two updates, CUDA four steps/one update, original policy equivalence, pre-update probability ratios near one, finite loss/KL/log probabilities, 34 changed parameter tensors, and exact save/reload equality. Twelve reward counterexample and termination/bootstrap tests passed, along with repeated GUI operation, recovery, resize, close, and reopen. Validation blocked wandb imports.
+
+Independent seeds 101/102/103 were evaluated for at most 32 steps each, about 1.07 seconds. Mean returns were 3.463 for the learned policy and 3.851 for the original fixed policy: **this short training did not improve on the original policy.**
 
 | Policy | Mean task return | Mean new route progress | Route completions |
 | --- | ---: | ---: | ---: |
@@ -82,8 +112,34 @@ Evaluation used independent seeds 101/102/103, each with at most 32 steps (about
 | Original fixed | 3.851 | 6.027 m | 0/3 |
 | Uniform random | -5.144 | 3.658 m | 0/3 |
 
-**The short learned policy did not improve on the original policy.** These checks establish bounded execution and contracts, not convergence, generalization, collision safety, full-route performance, or profitability. Long training, full-route evaluation, a real CARLA server, and vehicle control were not run. NPU integration, data-quality gains, and lower resource cost are unverified research goals.
+This evaluation is too short to establish full-route completion or collision safety. Long training, full-route evaluation, a real CARLA server, and vehicle control were not run.
 
-[VALIDATION.md](VALIDATION.md) contains failures, corrections, evidence, and limitations. Raw logs, tracebacks, environment dumps, and model/video artifacts remain local. The public validation summary retains the measured results without personal paths or host details. Preparation checked syntax, source hashes, secret patterns, document links, and the protected Git tree identity.
+See [Validation results](VALIDATION.md) for execution results, corrected failures, and evaluation tables. Raw logs and environment dumps are excluded from public distribution.
 
-The checkpoint's public provenance, a clean environment install, and full execution from a fresh checkout remain unresolved. The existing [LICENSE](LICENSE) is retained.
+```bash
+# CPU contracts and actual simulation regression
+CUDA_VISIBLE_DEVICES='' ./run.sh validation/tests/test_contracts.py
+CUDA_VISIBLE_DEVICES='' ./run.sh validation/tests/test_regression.py
+
+# Brief control check in an actual desktop Pygame window
+CUDA_VISIBLE_DEVICES='' SDL_AUDIODRIVER=dummy \
+  PYTHONPATH=validation/no_tracker:. ./run.sh validation/tests/test_gui.py
+```
+
+## Environment setup
+
+Complete checkpoint, map, environment, and font preparation in [Asset and environment setup](ASSET_SETUP.md). With a compatible existing Python 3.9 environment, create a project virtual environment from the repository root as follows. A clean installation remains untested.
+
+```bash
+python -m venv --system-site-packages .venv
+.venv/bin/python -m pip install --no-deps -r requirements-local.txt
+cp gui_settings.example.json gui_settings.json
+```
+
+Prepare the original checkpoint separately at `roach/log/ckpt_11833344.pth`. Its public source remains unresolved. Only the exact path and fixed SHA256 permit scoped Gym/NumPy metadata types, while retaining `weights_only=True`. No exception applies to other paths/hashes, and there is no unrestricted-pickle retry. `run.sh` requires `.venv/bin/python`.
+
+## Public source scope
+
+NPCs in `loop.py` share a fixed Roach policy and perform deterministic batched inference. PPO updates the ego policy; pedestrians use scripted behavior. BEV is a privileged observation generated from maps and simulated actor states, rather than camera-derived perception. NPU integration, training convergence, data-quality gains, and lower resource cost are unverified goals in this version. Earlier `env.py`, `model/ppo.py`, `data_gan.py`, and Roach integrations remain for comparison; full execution was not revalidated. Some earlier wrappers/criteria require an external `carla_gym` package that is not bundled.
+
+[Validation results](VALIDATION.md) describe runs already completed in the original environment. Git preparation did not rerun the GUI or training. Public files include validation summaries, tests, and GUI screenshots limited to the project window. Raw logs, environment dumps, generated models, and videos remain local and are excluded from public distribution. The existing [LICENSE](LICENSE) is retained.

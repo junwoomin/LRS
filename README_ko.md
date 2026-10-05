@@ -1,12 +1,16 @@
-# LRS_V1 실행 안내
+# LRS: Low Resource Simulation — LRS_V1
+
+[English](README.md) | **한국어**
+
+![PPO 2회 갱신을 기록한 한국어 GUI](validation/gui_smoke/learning.png)
 
 오프라인 BEV 주행 시뮬레이터, 고정 Roach 정책 주행, 별도 PPO 학습을 실행합니다. wandb 로그인·설치·업로드는 필요하지 않습니다. 지도는 기존 원격 `sim_using_data/`를 보존합니다. 원본의 지도·모델·과거 실행 기록은 로컬에 보존하며 새 커밋에는 포함하지 않습니다.
 
-[English](README.md)
+**현재 상태: 기존 로컬 환경에서 짧은 실행과 계약 검증을 통과했습니다. 짧게 학습한 정책은 원본 정책보다 나아지지 않았으며, 장시간 학습과 전체 경로 안전성은 검증하지 않았습니다.**
 
 ## 실행 전 필수 준비
 
-새 clone에는 가상환경, 추출된 지도, 모델 가중치와 개인 설정이 없습니다. 먼저 [ASSET_SETUP.md](ASSET_SETUP.md)에 따라 필수 자산을 준비하세요. 특히 원본 Roach 체크포인트의 공개 출처는 확인되지 않아, 그 파일 없이 GUI·시뮬레이션·PPO를 실행할 수 없습니다. `--from-scratch`도 NPC의 원본 정책 로딩을 제거하지 않습니다.
+새 clone에는 가상환경, 추출된 지도, 모델 가중치와 개인 설정이 없습니다. 먼저 [자산 및 환경 준비](ASSET_SETUP_ko.md)에 따라 필수 자산을 준비하세요. 특히 원본 Roach 체크포인트의 공개 출처는 확인되지 않아, 그 파일 없이 GUI·시뮬레이션·PPO를 실행할 수 없습니다. `--from-scratch`도 NPC의 원본 정책 로딩을 제거하지 않습니다.
 
 ```bash
 cp gui_settings.example.json gui_settings.json
@@ -51,7 +55,21 @@ Pygame 창이 **일시정지 상태**로 열립니다. `시작`을 누르면 고
 
 기본 출력은 `roach_run/<Town>/<시각>/`입니다. `--output`으로 새 출력 폴더를 지정할 수 있습니다. GUI는 `metrics.jsonl`, `summary.json`, 화면 PNG를 저장하고 PPO 갱신마다 `ppo_latest.pth`를 저장합니다. Headless 시뮬레이션은 실제 BEV 영상 `simulation.mp4`를 저장합니다. CLI 학습은 `ppo_final.pth`, 설정, 지표, 독립 평가 결과를 저장합니다. 기존 `roach/results.log`와 원본 체크포인트를 덮어쓰지 않습니다.
 
-창은 기본 1280×820, 최소 1024×760입니다. 글꼴·크기는 `gui_settings.example.json`을 복사한 개인 `gui_settings.json`에서 바꿀 수 있습니다. UI 상세 설명과 캡처는 [UI_GUIDE.md](UI_GUIDE.md)에 있습니다.
+창은 기본 1280×820, 최소 1024×760입니다. 글꼴·크기는 `gui_settings.example.json`을 복사한 개인 `gui_settings.json`에서 바꿀 수 있습니다. UI 상세 설명과 캡처는 [GUI 사용법](UI_GUIDE_ko.md)에 있습니다.
+
+## 구성과 관측
+
+| 경로 | 역할 |
+| --- | --- |
+| `gui.py`, `simulate.py` | 한국어 GUI와 고정 정책 시뮬레이션 |
+| `ppo_train.py`, `roach/ppo.py` | Ego PPO 수집·갱신·체크포인트 저장·평가 |
+| `task_reward.py`, `reward_config.json` | 학습 보상과 terminated/truncated 계약 |
+| `loop.py`, `sim/` | 오프라인 동역학·경로·보행자·신호등·BEV |
+| `roach/models/`, `roach/utils/checkpoint.py` | 원본 정책과 제한된 체크포인트 로딩 |
+| `validation/tests/`, `validation/no_tracker/` | 재현 테스트와 추적 라이브러리 import 차단 |
+| `env.py`, `model/ppo.py`, `data_gan.py` | 이전 변형; 전체 실행은 재검증하지 않음 |
+
+`birdview`는 float32, 형태 `(15, 192, 192)`, 범위 0–255이며 정책에서 255로 나눕니다. `state`는 제어값과 ego 좌표계 속도를 담은 6개 값입니다. 기본 실행 경로는 스텝당 1/30초 진행합니다.
 
 ## PPO와 보상
 
@@ -86,9 +104,17 @@ PPO 수집, old logprob, 가치 추정, 부트스트랩, 갱신은 같은 `PPOAg
 
 CPU 64스텝/2갱신, GPU 4스텝/1갱신, 원본 정책 동등성, 갱신 전 확률비≈1, 유한 손실/KL/logprob, 34개 파라미터 텐서 변경, 저장/재로드 동등성을 확인했습니다. 보상 반례와 종료/부트스트랩 12개 테스트, 실제 GUI 반복 조작·오류 복구·창 크기 변경·종료/재실행도 통과했습니다. 검증에서는 wandb import를 강제로 막았습니다.
 
-독립 seed 101/102/103으로 각 최대 32스텝(약 1.07초)의 짧은 평가를 했습니다. 학습 정책의 평균 보상은 3.463, 기존 고정 정책은 3.851로 **이번 짧은 학습이 원본 정책을 개선하지는 않았습니다.** 이 평가는 경로 완주나 충돌 안전성을 판단할 길이가 아닙니다. 장시간 학습/전체 경로 평가, 실제 CARLA 서버·실차 제어는 실행하지 않았습니다.
+독립 seed 101/102/103으로 각 최대 32스텝(약 1.07초)의 짧은 평가를 했습니다. 학습 정책의 평균 보상은 3.463, 기존 고정 정책은 3.851로 **이번 짧은 학습이 원본 정책을 개선하지는 않았습니다.** 평가 결과는 다음과 같습니다.
 
-실행 결과와 실패 수정의 요약, 평가 표는 [VALIDATION.md](VALIDATION.md)에 있습니다. 원시 로그와 환경 덤프는 공개하지 않습니다.
+| 정책 | 평균 과제 보상 | 평균 새 경로 진행 | 경로 완주 |
+| --- | ---: | ---: | ---: |
+| 64스텝 학습 정책 | 3.463 | 5.615 m | 0/3 |
+| 원본 고정 정책 | 3.851 | 6.027 m | 0/3 |
+| 균등 무작위 정책 | -5.144 | 3.658 m | 0/3 |
+
+이 평가는 경로 완주나 충돌 안전성을 판단할 길이가 아닙니다. 장시간 학습/전체 경로 평가, 실제 CARLA 서버·실차 제어는 실행하지 않았습니다.
+
+실행 결과와 실패 수정의 요약, 평가 표는 [검증 결과](VALIDATION_ko.md)에 있습니다. 원시 로그와 환경 덤프는 공개하지 않습니다.
 
 ```bash
 # CPU 계약/실제 시뮬레이션 회귀
@@ -102,7 +128,7 @@ CUDA_VISIBLE_DEVICES='' SDL_AUDIODRIVER=dummy \
 
 ## 환경 준비
 
-[ASSET_SETUP.md](ASSET_SETUP.md)의 checkpoint·지도·환경·글꼴 준비를 완료하세요. 호환되는 기존 Python 3.9 환경을 사용한다면 저장소 루트에서 다음처럼 프로젝트 가상환경을 만들 수 있습니다. 깨끗한 환경 전체 설치는 검증하지 않았습니다.
+[ASSET_SETUP.md](ASSET_SETUP_ko.md)의 checkpoint·지도·환경·글꼴 준비를 완료하세요. 호환되는 기존 Python 3.9 환경을 사용한다면 저장소 루트에서 다음처럼 프로젝트 가상환경을 만들 수 있습니다. 깨끗한 환경 전체 설치는 검증하지 않았습니다.
 
 ```bash
 python -m venv --system-site-packages .venv
@@ -116,4 +142,4 @@ cp gui_settings.example.json gui_settings.json
 
 `loop.py`의 NPC들은 공유된 고정 Roach 정책으로 결정론적 배치 추론을 수행합니다. PPO는 ego 정책을 갱신합니다. BEV는 지도와 시뮬레이션 객체 상태에서 생성되는 특권 관측이며 카메라 인식 결과가 아닙니다. NPU 통합·학습 수렴·데이터 품질 향상·자원 절감은 이 버전의 검증 성과가 아닙니다. `env.py`, `model/ppo.py`, `data_gan.py`와 이전 Roach 통합은 비교용 소스이며 전체 실행은 재검증하지 않았습니다. 일부 이전 wrapper/criteria는 포함되지 않은 `carla_gym`을 요구합니다.
 
-[VALIDATION.md](VALIDATION.md)의 결과는 원본 환경에서 이미 수행한 기록입니다. 이번 Git 준비에서는 GUI·학습을 재실행하지 않았습니다. 공개 폴더에는 검증 요약·테스트 코드와 프로젝트 화면만 보이는 GUI 캡처를 포함합니다. 원시 로그·환경 덤프·생성 모델·영상은 원본 로컬에 보존하며 공개 대상에서 제외합니다. [LICENSE](LICENSE)를 유지했습니다.
+[검증 결과](VALIDATION_ko.md)의 결과는 원본 환경에서 이미 수행한 기록입니다. 이번 Git 준비에서는 GUI·학습을 재실행하지 않았습니다. 공개 폴더에는 검증 요약·테스트 코드와 프로젝트 화면만 보이는 GUI 캡처를 포함합니다. 원시 로그·환경 덤프·생성 모델·영상은 원본 로컬에 보존하며 공개 대상에서 제외합니다. [LICENSE](LICENSE)를 유지했습니다.
