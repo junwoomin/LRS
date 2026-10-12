@@ -1,8 +1,8 @@
 # LRS: Low Resource Simulation — LRS_V1
 
-[English](README.md) | **한국어**
+[English](../README.md) | **한국어**
 
-![PPO 2회 갱신을 기록한 한국어 GUI](validation/gui_smoke/learning.png)
+![PPO 2회 갱신을 기록한 한국어 GUI](../validation/gui_smoke/learning.png)
 
 오프라인 BEV 주행 시뮬레이터, 고정 Roach 정책 주행, 별도 PPO 학습을 실행합니다. wandb 로그인·설치·업로드는 필요하지 않습니다. 지도는 기존 원격 `sim_using_data/`를 보존합니다. 원본의 지도·모델·과거 실행 기록은 로컬에 보존하며 새 커밋에는 포함하지 않습니다.
 
@@ -142,4 +142,4 @@ cp gui_settings.example.json gui_settings.json
 
 `loop.py`의 NPC들은 공유된 고정 Roach 정책으로 결정론적 배치 추론을 수행합니다. PPO는 ego 정책을 갱신합니다. BEV는 지도와 시뮬레이션 객체 상태에서 생성되는 특권 관측이며 카메라 인식 결과가 아닙니다. NPU 통합·학습 수렴·데이터 품질 향상·자원 절감은 이 버전의 검증 성과가 아닙니다. `env.py`, `model/ppo.py`, `data_gan.py`와 이전 Roach 통합은 비교용 소스이며 전체 실행은 재검증하지 않았습니다. 일부 이전 wrapper/criteria는 포함되지 않은 `carla_gym`을 요구합니다.
 
-[검증 결과](VALIDATION_ko.md)의 결과는 원본 환경에서 이미 수행한 기록입니다. 이번 Git 준비에서는 GUI·학습을 재실행하지 않았습니다. 공개 폴더에는 검증 요약·테스트 코드와 프로젝트 화면만 보이는 GUI 캡처를 포함합니다. 원시 로그·환경 덤프·생성 모델·영상은 원본 로컬에 보존하며 공개 대상에서 제외합니다. [LICENSE](LICENSE)를 유지했습니다.
+[검증 결과](VALIDATION_ko.md)의 결과는 원본 환경에서 이미 수행한 기록입니다. 이번 Git 준비에서는 GUI·학습을 재실행하지 않았습니다. 공개 폴더에는 검증 요약·테스트 코드와 프로젝트 화면만 보이는 GUI 캡처를 포함합니다. 원시 로그·환경 덤프·생성 모델·영상은 원본 로컬에 보존하며 공개 대상에서 제외합니다. [LICENSE](../LICENSE)를 유지했습니다.

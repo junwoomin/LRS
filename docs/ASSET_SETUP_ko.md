@@ -30,7 +30,7 @@ sha256sum roach/log/ckpt_11833344.pth
 
 ## 지도
 
-기존 [`sim_using_data/sim_using_data.zip`](sim_using_data/sim_using_data.zip)을 변경 없이 보존합니다. 이번 준비에서 그 내용을 다운로드하거나 압축해제하지 않았으므로 내용·정상성·checkpoint 포함 여부는 확인하지 않았습니다.
+기존 [`sim_using_data/sim_using_data.zip`](../sim_using_data/sim_using_data.zip)을 변경 없이 보존합니다. 이번 준비에서 그 내용을 다운로드하거나 압축해제하지 않았으므로 내용·정상성·checkpoint 포함 여부는 확인하지 않았습니다.
 
 `unzip -l sim_using_data/sim_using_data.zip`으로 구조를 확인하고 빈 임시 폴더에 풀어 아래 경로로 배치하세요. 기존 로컬 추출 파일을 새 checkout으로 별도 복사할 수도 있습니다. 원본과 기존 ZIP은 덮어쓰지 마세요. 중첩된 `sim_using_data/sim_using_data/`는 소스가 읽지 않습니다.
 

@@ -2,7 +2,7 @@
 
 **English** | [한국어](VALIDATION_ko.md)
 
-[Project overview](README.md)
+[Project overview](../README.md)
 
 This document summarizes previously completed short execution and contract checks. Publishing preparation did not rerun the GUI, simulation, or training. Raw logs, tracebacks, personal paths, and environment dumps are excluded from public distribution; original local records are preserved.
 
@@ -37,7 +37,7 @@ Reproduction tests remain in `validation/tests/` and `validation/no_tracker/`. A
 | Different routes on repeated same-seed reset | Applied seed immediately before actual reset; route equivalence passed |
 | Initial CUDA single/batch ratio error .001126 | Disabling cuDNN TF32 within the process reduced it to .000122; the actual short entrypoint passed |
 
-GUI recovery testing intentionally injected NaN actions. The [error screenshot](validation/gui_smoke/error.png) does not represent a failure observed during ordinary use.
+GUI recovery testing intentionally injected NaN actions. The [error screenshot](../validation/gui_smoke/error.png) does not represent a failure observed during ordinary use.
 
 ## Independent-seed evaluation
 

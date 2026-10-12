@@ -1,5 +1,5 @@
 # Direct core imports; this is NOT a verified install specification or lockfile.
-# Exact observed versions are in ASSET_SETUP.md.
+# Exact observed versions are in docs/ASSET_SETUP.md.
 # The recorded OpenCV 4.13 / NumPy 1.26 environment has inconsistent dependency
 # metadata, so copying all observed pins into pip requirements is not valid.
 numpy

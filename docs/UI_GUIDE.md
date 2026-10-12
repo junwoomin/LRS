@@ -2,7 +2,7 @@
 
 **English** | [한국어](UI_GUIDE_ko.md)
 
-[Project overview](README.md)
+[Project overview](../README.md)
 
 ```bash
 ./run.sh gui.py
@@ -44,12 +44,12 @@ Pausing retains the current rollout. New episode or mode change discards an unfi
 
 ## Recorded validation screenshots
 
-- [Ready](validation/gui_smoke/ready.png)
-- [Paused](validation/gui_smoke/paused.png)
-- [Two actual PPO updates](validation/gui_smoke/learning.png)
-- [Reward components](validation/gui_smoke/rewards.png)
-- [Error display](validation/gui_smoke/error.png)
-- [1024×760 window](validation/gui_smoke/resized.png)
-- [Reopened after exit](validation/gui_restarted/restarted.png)
+- [Ready](../validation/gui_smoke/ready.png)
+- [Paused](../validation/gui_smoke/paused.png)
+- [Two actual PPO updates](../validation/gui_smoke/learning.png)
+- [Reward components](../validation/gui_smoke/rewards.png)
+- [Error display](../validation/gui_smoke/error.png)
+- [1024×760 window](../validation/gui_smoke/resized.png)
+- [Reopened after exit](../validation/gui_restarted/restarted.png)
 
 `validation/tests/test_gui.py` sends click/key events through an actual desktop window's Pygame event queue to verify control connections to physics and learning. Its NaN-action error is intentionally injected for recovery testing, not a failure observed during ordinary use. See [Validation results](VALIDATION.md). Raw execution logs and environment information are excluded from public distribution.

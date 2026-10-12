@@ -2,7 +2,7 @@
 
 **English** | [한국어](ASSET_SETUP_ko.md)
 
-[Project overview](README.md)
+[Project overview](../README.md)
 
 Prepare assets from the repository root. A fresh clone has no virtual environment, extracted maps, checkpoint, or private GUI settings. The preparation commands below were not executed during the original publishing work.
 
@@ -30,7 +30,7 @@ The unresolved public acquisition procedure remains a reproduction blocker for n
 
 ## Maps
 
-The existing [`sim_using_data/sim_using_data.zip`](sim_using_data/sim_using_data.zip) is preserved unchanged. It was not downloaded or extracted during publishing preparation, so its contents, integrity, and possible checkpoint inclusion were not verified.
+The existing [`sim_using_data/sim_using_data.zip`](../sim_using_data/sim_using_data.zip) is preserved unchanged. It was not downloaded or extracted during publishing preparation, so its contents, integrity, and possible checkpoint inclusion were not verified.
 
 Inspect its layout with `unzip -l sim_using_data/sim_using_data.zip`, extract into an empty temporary directory, and arrange the required paths below. Alternatively, copy existing local extracted files separately into the new checkout. Do not overwrite originals or the existing ZIP. The source does not read a nested `sim_using_data/sim_using_data/` directory.
 

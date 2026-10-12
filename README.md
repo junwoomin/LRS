@@ -1,6 +1,6 @@
 # LRS: Low Resource Simulation — LRS_V1
 
-**English** | [한국어](README_ko.md)
+**English** | [한국어](docs/README_ko.md)
 
 ![Recorded Korean GUI with two PPO updates](validation/gui_smoke/learning.png)
 
@@ -10,7 +10,7 @@ An offline BEV driving simulator with fixed Roach policy inference, a separate e
 
 ## Required preparation
 
-A fresh clone does not contain a virtual environment, extracted maps, policy weights, or private settings. Follow [Asset and environment setup](ASSET_SETUP.md) first. The original Roach checkpoint's public source remains unresolved: the GUI, simulator, and PPO trainer cannot run without it. `--from-scratch` still requires the original NPC policy checkpoint.
+A fresh clone does not contain a virtual environment, extracted maps, policy weights, or private settings. Follow [Asset and environment setup](docs/ASSET_SETUP.md) first. The original Roach checkpoint's public source remains unresolved: the GUI, simulator, and PPO trainer cannot run without it. `--from-scratch` still requires the original NPC policy checkpoint.
 
 ```bash
 cp gui_settings.example.json gui_settings.json
@@ -55,7 +55,7 @@ The default `train_w.py` command also opens the new GUI. Use `ppo_train.py` for 
 
 The default output directory is `roach_run/<Town>/<timestamp>/`. Use `--output` to choose a new output directory. The GUI saves `metrics.jsonl`, `summary.json`, screenshots, and `ppo_latest.pth` after each PPO update. Headless simulation saves actual BEV video to `simulation.mp4`. CLI training saves `ppo_final.pth`, configuration, metrics, and independent evaluation results. Existing `roach/results.log` and the original checkpoint are not overwritten.
 
-The default window is 1280×820, with a minimum of 1024×760. Configure font and size in your local `gui_settings.json`, copied from `gui_settings.example.json`. See [GUI guide](UI_GUIDE.md) for details and recorded screenshots.
+The default window is 1280×820, with a minimum of 1024×760. Configure font and size in your local `gui_settings.json`, copied from `gui_settings.example.json`. See [GUI guide](docs/UI_GUIDE.md) for details and recorded screenshots.
 
 ## Structure and observations
 
@@ -114,7 +114,7 @@ Independent seeds 101/102/103 were evaluated for at most 32 steps each, about 1.
 
 This evaluation is too short to establish full-route completion or collision safety. Long training, full-route evaluation, a real CARLA server, and vehicle control were not run.
 
-See [Validation results](VALIDATION.md) for execution results, corrected failures, and evaluation tables. Raw logs and environment dumps are excluded from public distribution.
+See [Validation results](docs/VALIDATION.md) for execution results, corrected failures, and evaluation tables. Raw logs and environment dumps are excluded from public distribution.
 
 ```bash
 # CPU contracts and actual simulation regression
@@ -128,7 +128,7 @@ CUDA_VISIBLE_DEVICES='' SDL_AUDIODRIVER=dummy \
 
 ## Environment setup
 
-Complete checkpoint, map, environment, and font preparation in [Asset and environment setup](ASSET_SETUP.md). With a compatible existing Python 3.9 environment, create a project virtual environment from the repository root as follows. A clean installation remains untested.
+Complete checkpoint, map, environment, and font preparation in [Asset and environment setup](docs/ASSET_SETUP.md). With a compatible existing Python 3.9 environment, create a project virtual environment from the repository root as follows. A clean installation remains untested.
 
 ```bash
 python -m venv --system-site-packages .venv
@@ -142,4 +142,4 @@ Prepare the original checkpoint separately at `roach/log/ckpt_11833344.pth`. Its
 
 NPCs in `loop.py` share a fixed Roach policy and perform deterministic batched inference. PPO updates the ego policy; pedestrians use scripted behavior. BEV is a privileged observation generated from maps and simulated actor states, rather than camera-derived perception. NPU integration, training convergence, data-quality gains, and lower resource cost are unverified goals in this version. Earlier `env.py`, `model/ppo.py`, `data_gan.py`, and Roach integrations remain for comparison; full execution was not revalidated. Some earlier wrappers/criteria require an external `carla_gym` package that is not bundled.
 
-[Validation results](VALIDATION.md) describe runs already completed in the original environment. Git preparation did not rerun the GUI or training. Public files include validation summaries, tests, and GUI screenshots limited to the project window. Raw logs, environment dumps, generated models, and videos remain local and are excluded from public distribution. The existing [LICENSE](LICENSE) is retained.
+[Validation results](docs/VALIDATION.md) describe runs already completed in the original environment. Git preparation did not rerun the GUI or training. Public files include validation summaries, tests, and GUI screenshots limited to the project window. Raw logs, environment dumps, generated models, and videos remain local and are excluded from public distribution. The existing [LICENSE](LICENSE) is retained.

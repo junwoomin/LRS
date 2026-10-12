@@ -37,7 +37,7 @@
 | 같은 seed의 반복 reset 경로 불일치 | 실제 reset 직전에 seed 적용 후 경로 동등성 통과 |
 | 첫 CUDA 실행의 single/batch ratio오차 .001126 | 해당 프로세스 cuDNN TF32를 끈 뒤 .000122로 감소, 실제 짧은 진입점 통과 |
 
-GUI 오류복구 검증은 의도적으로 NaN 행동을 주입한 시험입니다. [오류 화면](validation/gui_smoke/error.png)은 일반 사용 중의 실패를 나타내는 성능 결과가 아닙니다.
+GUI 오류복구 검증은 의도적으로 NaN 행동을 주입한 시험입니다. [오류 화면](../validation/gui_smoke/error.png)은 일반 사용 중의 실패를 나타내는 성능 결과가 아닙니다.
 
 ## 독립 seed 평가
 

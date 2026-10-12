@@ -44,12 +44,12 @@ GUI의 PPO 롤아웃 기본은 32스텝, 1 epoch, 최대 minibatch 16, lr 1e-5�
 
 ## 실제 검증 캡처
 
-- [준비 화면](validation/gui_smoke/ready.png)
-- [일시정지](validation/gui_smoke/paused.png)
-- [실제 PPO 2회 갱신](validation/gui_smoke/learning.png)
-- [보상 항목](validation/gui_smoke/rewards.png)
-- [오류 표시](validation/gui_smoke/error.png)
-- [1024×760 크기](validation/gui_smoke/resized.png)
-- [종료 후 재실행](validation/gui_restarted/restarted.png)
+- [준비 화면](../validation/gui_smoke/ready.png)
+- [일시정지](../validation/gui_smoke/paused.png)
+- [실제 PPO 2회 갱신](../validation/gui_smoke/learning.png)
+- [보상 항목](../validation/gui_smoke/rewards.png)
+- [오류 표시](../validation/gui_smoke/error.png)
+- [1024×760 크기](../validation/gui_smoke/resized.png)
+- [종료 후 재실행](../validation/gui_restarted/restarted.png)
 
 `validation/tests/test_gui.py`가 실제 데스크톱 창의 Pygame 이벤트 큐에 클릭/키 이벤트를 보내 제어와 실제 물리/학습 연결을 확인합니다. GUI 테스트의 NaN 행동 오류는 의도적으로 주입한 복구 검증이며 정상 사용 중 발생한 실패가 아닙니다. 결과는 [검증 결과](VALIDATION_ko.md)에 요약했습니다. 원시 실행 로그와 환경 정보는 공개하지 않습니다.
