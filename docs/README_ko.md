@@ -4,9 +4,9 @@
 
 ![PPO 2회 갱신을 기록한 한국어 GUI](../validation/gui_smoke/learning.png)
 
-오프라인 BEV 주행 시뮬레이터, 고정 Roach 정책 주행, 별도 PPO 학습을 실행합니다. wandb 로그인·설치·업로드는 필요하지 않습니다. 지도는 기존 원격 `sim_using_data/`를 보존합니다. 원본의 지도·모델·과거 실행 기록은 로컬에 보존하며 새 커밋에는 포함하지 않습니다.
+오프라인 BEV 주행 시뮬레이터, 고정 Roach 정책 주행, 별도 PPO 학습을 실행합니다. wandb 로그인·설치·업로드는 필요하지 않습니다. 기존 `sim_using_data/`의 지도 ZIP을 보존하며 실행용 지도 파일은 별도로 추출·배치해야 합니다. 원본 모델·과거 실행 기록은 로컬에 보존하며 새 커밋에는 포함하지 않습니다.
 
-**현재 상태: 기존 로컬 환경에서 짧은 실행과 계약 검증을 통과했습니다. 짧게 학습한 정책은 원본 정책보다 나아지지 않았으며, 장시간 학습과 전체 경로 안전성은 검증하지 않았습니다.**
+**현재 상태: 과거 로컬 환경에서 짧은 실행과 계약 검증을 통과했습니다. 짧게 학습한 정책은 원본 정책보다 나아지지 않았으며, 장시간 학습과 전체 경로 안전성은 검증하지 않았습니다. 새 준비 검사 통과는 주행·학습 검증을 뜻하지 않습니다.**
 
 ## 실행 전 필수 준비
 
@@ -18,13 +18,31 @@ cp gui_settings.example.json gui_settings.json
 
 개인 `gui_settings.json`은 Git에서 제외됩니다. 한글 글꼴 경로를 로컬 환경에 맞게 수정하세요. `requirements.txt`는 코어 직접 의존성 목록이며 검증된 설치 명세/lockfile이 아닙니다. 실측 OpenCV 4.13의 metadata는 NumPy>=2를 요구하지만 기존 실행 환경은 NumPy 1.26.4이므로 패키지 의존성 불일치가 있습니다. 새 환경 전체 설치와 NumPy 2 checkpoint 호환성은 검증하지 않았습니다. 아래 절차는 호환되는 기존 Python 환경이 있는 경우에만 사용합니다.
 
+`run.sh`는 요청한 Python 파일을 시작하기 전에 선택한 Town의 필수 지도, 원본 NPC 체크포인트의 고정 SHA256, 정책 YAML과 프로젝트 `.venv`를 검사합니다. 의존성은 검사기의 호스트 환경이 아니라 `.venv/bin/python`에서 직접 import합니다. 기본 GUI는 유효한 개인 설정과 글꼴 파일도 필요합니다. 실패하면 한국어 원인·해결 명령을 출력하고 실행을 중단합니다. 자산을 자동 다운로드하거나 압축해제하지 않습니다.
+
 ## 바로 실행
 
 ```bash
+# 준비 상태만 검사: GUI/정책을 시작하지 않음
+./run.sh --check
+
+# 필수 자산과 의존성을 준비한 뒤 실행
 ./run.sh
 ```
 
-Pygame 창이 **일시정지 상태**로 열립니다. `시작`을 누르면 고정 정책이 주행합니다. 우측 상단의 `PPO 학습`을 선택하면 실제 정책 수집·갱신 모드로 바뀝니다. 모드를 바꾼 뒤 시작을 누르세요. GUI는 CPU를 사용합니다.
+준비 검사가 통과한 뒤 Pygame 창이 **일시정지 상태**로 열립니다. `시작`을 누르면 고정 정책이 주행합니다. 우측 상단의 `PPO 학습`을 선택하면 실제 정책 수집·갱신 모드로 바뀝니다. 모드를 바꾼 뒤 시작을 누르세요. GUI는 CPU를 사용합니다.
+
+실행할 파일과 같은 인자로 준비 상태를 검사할 수 있습니다. `--town` 및 `--town=Town04`는 해당 Town의 파일을 선택합니다. Town04/Town05는 계층 지도 파일 4개가 추가로 필요합니다. `TOWN` 환경변수는 `simulate.py`와 `train_w.py`의 기본 Town에만 적용됩니다. Headless 시뮬레이션과 CLI PPO는 GUI 설정·글꼴이 필요하지 않습니다.
+
+```bash
+./run.sh --check simulate.py --headless --town Town03
+./run.sh --check ppo_train.py --town Town03 --from-scratch
+
+# .venv가 없어도 진단 가능: 검사기 자체는 Python 표준 라이브러리만 사용
+python3 preflight.py simulate.py --headless --town Town03
+```
+
+종료 코드 0은 준비 검사 통과이며, 0이 아니면 `run.sh` 실행을 차단합니다. 파일 존재·읽기 가능 여부, 원본 해시, 의존성 import와 일부 필수 API만 확인합니다. 체크포인트 역직렬화, 지도 내용, 전체 패키지 버전 호환성, CUDA·디스플레이 초기화, 실제 주행·학습 성공을 검증하지 않습니다. 원본 체크포인트의 공개 확보 경로는 여전히 미확인입니다.
 
 ```bash
 # GUI를 명시적으로 실행
@@ -62,6 +80,7 @@ Pygame 창이 **일시정지 상태**로 열립니다. `시작`을 누르면 고
 | 경로 | 역할 |
 | --- | --- |
 | `gui.py`, `simulate.py` | 한국어 GUI와 고정 정책 시뮬레이션 |
+| `preflight.py`, `run.sh`, `roach/utils/asset_manifest.py` | 실행 전 검사와 공유 원본 체크포인트 식별 정보 |
 | `ppo_train.py`, `roach/ppo.py` | Ego PPO 수집·갱신·체크포인트 저장·평가 |
 | `task_reward.py`, `reward_config.json` | 학습 보상과 terminated/truncated 계약 |
 | `loop.py`, `sim/` | 오프라인 동역학·경로·보행자·신호등·BEV |
@@ -102,7 +121,7 @@ PPO 수집, old logprob, 가치 추정, 부트스트랩, 갱신은 같은 `PPOAg
 
 ## 검증과 현재 한계
 
-CPU 64스텝/2갱신, GPU 4스텝/1갱신, 원본 정책 동등성, 갱신 전 확률비≈1, 유한 손실/KL/logprob, 34개 파라미터 텐서 변경, 저장/재로드 동등성을 확인했습니다. 보상 반례와 종료/부트스트랩 12개 테스트, 실제 GUI 반복 조작·오류 복구·창 크기 변경·종료/재실행도 통과했습니다. 검증에서는 wandb import를 강제로 막았습니다.
+과거 기록에서 CPU 64스텝/2갱신, GPU 4스텝/1갱신, 원본 정책 동등성, 갱신 전 확률비≈1, 유한 손실/KL/logprob, 34개 파라미터 텐서 변경, 저장/재로드 동등성을 확인했습니다. 보상 반례와 종료/부트스트랩 12개 테스트, 실제 GUI 반복 조작·오류 복구·창 크기 변경·종료/재실행도 통과했습니다. 당시 검증에서는 wandb import를 강제로 막았습니다. 이 과거 결과는 새 준비 검사와 별개입니다.
 
 독립 seed 101/102/103으로 각 최대 32스텝(약 1.07초)의 짧은 평가를 했습니다. 학습 정책의 평균 보상은 3.463, 기존 고정 정책은 3.851로 **이번 짧은 학습이 원본 정책을 개선하지는 않았습니다.** 평가 결과는 다음과 같습니다.
 
@@ -117,14 +136,21 @@ CPU 64스텝/2갱신, GPU 4스텝/1갱신, 원본 정책 동등성, 갱신 전 �
 실행 결과와 실패 수정의 요약, 평가 표는 [검증 결과](VALIDATION_ko.md)에 있습니다. 원시 로그와 환경 덤프는 공개하지 않습니다.
 
 ```bash
-# CPU 계약/실제 시뮬레이션 회귀
-CUDA_VISIBLE_DEVICES='' ./run.sh validation/tests/test_contracts.py
+# 준비 검사와 실행 차단 회귀 테스트: Python 표준 라이브러리만 필요
+python3 validation/tests/test_preflight.py
+
+# 기존 계약 테스트: 호환 의존성은 필요하지만 지도/가중치를 로드하지 않음
+CUDA_VISIBLE_DEVICES='' .venv/bin/python -B validation/tests/test_contracts.py
+
+# 실제 시뮬레이션 회귀 검증: 원본 체크포인트와 지도도 필요
 CUDA_VISIBLE_DEVICES='' ./run.sh validation/tests/test_regression.py
 
 # 실제 데스크톱 Pygame 창을 열어 짧게 조작 검증
 CUDA_VISIBLE_DEVICES='' SDL_AUDIODRIVER=dummy \
   PYTHONPATH=validation/no_tracker:. ./run.sh validation/tests/test_gui.py
 ```
+
+준비 검사 테스트는 임시 가상환경에서 합성 파일과 의존성 대역을 사용합니다. 누락·빈 파일·중첩 지도 경로, Town04/Town05 추가 지도, 체크포인트·해시 오류, `--from-scratch` 및 별도 ego 가중치에서도 유지되는 NPC 요구사항, 의존성 누락·import 오류, 실행 차단·인자 전달을 검사합니다. 실제 Roach 정책·주행·PPO 갱신은 실행하지 않습니다. 기존 시뮬레이션·GUI 회귀 테스트에는 실제 자산과 호환 패키지가 필요합니다.
 
 ## 환경 준비
 
@@ -136,7 +162,7 @@ python -m venv --system-site-packages .venv
 cp gui_settings.example.json gui_settings.json
 ```
 
-원본 체크포인트는 `roach/log/ckpt_11833344.pth`에 별도로 준비합니다. 외부 원본 출처는 미확인입니다. 동일 경로와 고정 SHA256가 일치할 때만 제한된 Gym/NumPy 메타데이터 타입을 허용하며 `weights_only=True`를 유지합니다. 다른 경로/해시에는 예외를 적용하지 않고 unrestricted pickle로 재시도하지 않습니다.
+원본 체크포인트는 `roach/log/ckpt_11833344.pth`에 실제 파일로 별도 준비합니다. 외부 원본 출처는 미확인입니다. 동일 경로와 고정 SHA256가 일치할 때만 제한된 Gym/NumPy 메타데이터 타입을 허용하며 `weights_only=True`를 유지합니다. 심볼릭 링크는 제한 로더의 고정 경로 조건을 충족하지 않습니다. 다른 경로/해시에는 예외를 적용하지 않고 unrestricted pickle로 재시도하지 않습니다. `run.sh`는 Python 3.9 이상의 정상적인 프로젝트 `.venv`를 요구합니다. 실행 전에 `./run.sh --check`로 준비 상태를 확인하세요.
 
 ## 공개 소스 범위
 

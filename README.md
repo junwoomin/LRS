@@ -4,9 +4,9 @@
 
 ![Recorded Korean GUI with two PPO updates](validation/gui_smoke/learning.png)
 
-An offline BEV driving simulator with fixed Roach policy inference, a separate ego PPO trainer, and a Korean Pygame interface. No wandb installation, login, or upload is required. The existing remote maps in `sim_using_data/` are preserved. Original maps, models, and historical run records remain local and are excluded from new commits.
+An offline BEV driving simulator with fixed Roach policy inference, a separate ego PPO trainer, and a Korean Pygame interface. No wandb installation, login, or upload is required. The existing map ZIP in `sim_using_data/` is preserved; runtime map files must be extracted and arranged separately. Original models and historical run records remain local and are excluded from new commits.
 
-**Status: short execution and contract checks passed in the recorded local environment. The short learned policy did not improve on the original policy. Long training and full-route safety remain unvalidated.**
+**Status: historical short execution and contract checks passed in the recorded local environment. The short learned policy did not improve on the original policy. Long training and full-route safety remain unvalidated. Passing the new preparation checker does not validate driving or training.**
 
 ## Required preparation
 
@@ -18,13 +18,31 @@ cp gui_settings.example.json gui_settings.json
 
 The private `gui_settings.json` is ignored by Git. Set its font path to an installed Korean font. `requirements.txt` lists direct core dependencies; it is not a verified installation specification or lockfile. OpenCV 4.13 metadata requires NumPy >=2, but the recorded environment used NumPy 1.26.4. Clean installation and NumPy 2 checkpoint compatibility have not been tested. The environment commands below require a compatible existing Python environment.
 
+Every `run.sh` invocation now checks the selected town's required files, the original NPC checkpoint's fixed SHA256, the policy YAML, and the project `.venv` before starting the requested Python script. Dependency imports run in `.venv/bin/python`, not the checker's host environment. The default GUI also requires valid private settings and an existing font file. Failures stop execution with Korean diagnostics and repair commands; no asset is downloaded or extracted automatically.
+
 ## Quick start
 
 ```bash
+# Preparation check only; does not start the GUI or run a policy
+./run.sh --check
+
+# Launch after preparing all required assets and dependencies
 ./run.sh
 ```
 
-The Pygame window opens **paused**. Press Start to run the fixed policy. Select PPO training in the upper-right corner to switch to policy collection and updates, then press Start. The GUI uses CPU.
+After preparation checks pass, the Pygame window opens **paused**. Press Start to run the fixed policy. Select PPO training in the upper-right corner to switch to policy collection and updates, then press Start. The GUI uses CPU.
+
+Use the same script and arguments for a command-specific preparation check. `--town` (including `--town=Town04`) selects that town's files; Town04/Town05 need four additional layered-map files. `TOWN` supplies the default only for `simulate.py` and `train_w.py`. Headless simulation and CLI PPO do not require GUI settings or a font.
+
+```bash
+./run.sh --check simulate.py --headless --town Town03
+./run.sh --check ppo_train.py --town Town03 --from-scratch
+
+# Standard-library-only diagnostics, including when .venv does not exist yet
+python3 preflight.py simulate.py --headless --town Town03
+```
+
+Exit status 0 means the preparation checks passed; a nonzero status blocks `run.sh`. This confirms file presence/readability, the original hash, and dependency imports/selected APIs. It does not deserialize checkpoints, validate map contents or package-wide version compatibility, initialize CUDA/display devices, or demonstrate successful driving or learning. The public acquisition path for the original checkpoint remains unresolved.
 
 ```bash
 # Explicit GUI entrypoint
@@ -62,6 +80,7 @@ The default window is 1280×820, with a minimum of 1024×760. Configure font and
 | Path | Role |
 | --- | --- |
 | `gui.py`, `simulate.py` | Korean GUI and fixed-policy simulation |
+| `preflight.py`, `run.sh`, `roach/utils/asset_manifest.py` | Preparation gate and shared original-checkpoint identity |
 | `ppo_train.py`, `roach/ppo.py` | Ego PPO collection, updates, checkpoint output, evaluation |
 | `task_reward.py`, `reward_config.json` | Task rewards and terminated/truncated contract |
 | `loop.py`, `sim/` | Offline dynamics, routes, pedestrians, traffic lights, BEV |
@@ -102,7 +121,7 @@ True terminal states disable value bootstrap. Time-limit truncation uses the las
 
 ## Validation and current limits
 
-Recorded checks cover CPU 64 steps/two updates, CUDA four steps/one update, original policy equivalence, pre-update probability ratios near one, finite loss/KL/log probabilities, 34 changed parameter tensors, and exact save/reload equality. Twelve reward counterexample and termination/bootstrap tests passed, along with repeated GUI operation, recovery, resize, close, and reopen. Validation blocked wandb imports.
+Previously recorded checks cover CPU 64 steps/two updates, CUDA four steps/one update, original policy equivalence, pre-update probability ratios near one, finite loss/KL/log probabilities, 34 changed parameter tensors, and exact save/reload equality. Twelve reward counterexample and termination/bootstrap tests passed, along with repeated GUI operation, recovery, resize, close, and reopen. Validation blocked wandb imports. These historical results are separate from the preparation checker.
 
 Independent seeds 101/102/103 were evaluated for at most 32 steps each, about 1.07 seconds. Mean returns were 3.463 for the learned policy and 3.851 for the original fixed policy: **this short training did not improve on the original policy.**
 
@@ -117,14 +136,21 @@ This evaluation is too short to establish full-route completion or collision saf
 See [Validation results](docs/VALIDATION.md) for execution results, corrected failures, and evaluation tables. Raw logs and environment dumps are excluded from public distribution.
 
 ```bash
-# CPU contracts and actual simulation regression
-CUDA_VISIBLE_DEVICES='' ./run.sh validation/tests/test_contracts.py
+# Preparation checker and launcher regression tests: standard library only
+python3 validation/tests/test_preflight.py
+
+# Existing contracts require compatible dependencies but do not load map/weight assets
+CUDA_VISIBLE_DEVICES='' .venv/bin/python -B validation/tests/test_contracts.py
+
+# Actual simulation regression additionally requires original checkpoint and maps
 CUDA_VISIBLE_DEVICES='' ./run.sh validation/tests/test_regression.py
 
 # Brief control check in an actual desktop Pygame window
 CUDA_VISIBLE_DEVICES='' SDL_AUDIODRIVER=dummy \
   PYTHONPATH=validation/no_tracker:. ./run.sh validation/tests/test_gui.py
 ```
+
+Preparation tests use synthetic files and dependency stand-ins in temporary virtual environments. They cover missing/empty/nested maps, Town04/Town05 layers, checkpoint/hash errors, the retained NPC requirement with `--from-scratch` or custom ego weights, missing/broken dependency imports, and launch blocking/argument forwarding. They do not exercise the real Roach policy, driving, or PPO updates. Existing simulation/GUI regressions still need the real assets and compatible packages.
 
 ## Environment setup
 
@@ -136,7 +162,7 @@ python -m venv --system-site-packages .venv
 cp gui_settings.example.json gui_settings.json
 ```
 
-Prepare the original checkpoint separately at `roach/log/ckpt_11833344.pth`. Its public source remains unresolved. Only the exact path and fixed SHA256 permit scoped Gym/NumPy metadata types, while retaining `weights_only=True`. No exception applies to other paths/hashes, and there is no unrestricted-pickle retry. `run.sh` requires `.venv/bin/python`.
+Prepare the original checkpoint separately as a regular file at `roach/log/ckpt_11833344.pth`. Its public source remains unresolved. Only the exact path and fixed SHA256 permit scoped Gym/NumPy metadata types, while retaining `weights_only=True`. A checkpoint symlink does not satisfy the restricted loader's fixed-path condition. No exception applies to other paths/hashes, and there is no unrestricted-pickle retry. `run.sh` requires a working project `.venv` with Python 3.9 or later; run `./run.sh --check` to inspect preparation before launching.
 
 ## Public source scope
 

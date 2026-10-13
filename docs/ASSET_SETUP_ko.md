@@ -16,9 +16,9 @@
 1fecec0c8a206a9ac07a6a9b0be77a5b7e95a073b20d9dfc2a7397354355094a
 ```
 
-이 해시는 제한 로더의 상수와 일치하며 출처 인증이나 배포 권한을 증명하지는 않습니다. 가중치는 공개 커밋에서 제외했습니다. 공개 다운로드 주소·원본 발행자/서명·배포 권한은 확인되지 않았으며 추측한 주소를 제공하지 않습니다.
+검사기와 제한 로더는 `roach/utils/asset_manifest.py`의 해시를 공유하며 출처 인증이나 배포 권한을 증명하지는 않습니다. 가중치는 공개 커밋에서 제외했습니다. 공개 다운로드 주소·원본 발행자/서명·배포 권한은 확인되지 않았으며 추측한 주소를 제공하지 않습니다.
 
-원본 파일을 적법하게 보유한 사용자는 프로젝트의 `roach/log/`에 별도 복사하고 해시를 확인하세요. 아래는 인접한 `local_assets/`에 파일을 준비한 경우의 상대경로 예시입니다.
+원본 파일을 적법하게 보유한 사용자는 프로젝트의 `roach/log/`에 실제 파일로 별도 복사하고 해시를 확인하세요. 심볼릭 링크는 제한 로더의 고정 경로 조건을 충족하지 않습니다. 아래는 인접한 `local_assets/`에 파일을 준비한 경우의 상대경로 예시입니다.
 
 ```bash
 mkdir -p roach/log
@@ -33,6 +33,14 @@ sha256sum roach/log/ckpt_11833344.pth
 기존 [`sim_using_data/sim_using_data.zip`](../sim_using_data/sim_using_data.zip)을 변경 없이 보존합니다. 이번 준비에서 그 내용을 다운로드하거나 압축해제하지 않았으므로 내용·정상성·checkpoint 포함 여부는 확인하지 않았습니다.
 
 `unzip -l sim_using_data/sim_using_data.zip`으로 구조를 확인하고 빈 임시 폴더에 풀어 아래 경로로 배치하세요. 기존 로컬 추출 파일을 새 checkout으로 별도 복사할 수도 있습니다. 원본과 기존 ZIP은 덮어쓰지 마세요. 중첩된 `sim_using_data/sim_using_data/`는 소스가 읽지 않습니다.
+
+```bash
+unzip -l sim_using_data/sim_using_data.zip
+asset_tmp="$(mktemp -d)"
+unzip sim_using_data/sim_using_data.zip -d "$asset_tmp"
+# 추출된 구조를 확인하고 아래 필수 경로에 파일을 각각 복사하세요.
+# ZIP의 내부 배치/내용은 미검증이며 압축해제만으로 실행 준비가 끝났다고 가정하지 마세요.
+```
 
 | 기본 Town03 경로 | 용도 |
 | --- | --- |
@@ -59,4 +67,35 @@ python -m venv --system-site-packages .venv
 cp gui_settings.example.json gui_settings.json
 ```
 
-`gui_settings.json`은 GUI가 읽는 개인 파일이며 Git에서 제외합니다. 예제의 `font_path`를 설치된 한글 글꼴 경로로 맞추세요. 일부 이전 Roach wrapper/criteria의 `carla_gym`, hydra/h5py 등은 주 실행 검증 범위 밖입니다. 의존성·checkpoint·추출 지도·글꼴을 모두 준비한 후 `./run.sh`를 실행하세요.
+`gui_settings.json`은 GUI가 읽는 개인 파일이며 Git에서 제외합니다. 예제의 `font_path`를 설치된 한글 글꼴 경로로 맞추세요. 일부 이전 Roach wrapper/criteria의 `carla_gym`, hydra/h5py 등은 주 실행 검증 범위 밖입니다.
+
+## 실행 전 준비 검사
+
+검사기 자체는 Python 표준 라이브러리만 사용합니다. 프로젝트 가상환경을 만들기 전에도 실행하여 누락 자산과 환경 준비 방법을 확인할 수 있습니다.
+
+```bash
+python3 preflight.py gui.py
+
+# run.sh도 같은 검사기를 실행하며 --check는 검사 후 종료합니다.
+./run.sh --check
+./run.sh --check simulate.py --headless --town Town03
+./run.sh --check ppo_train.py --town Town04 --from-scratch
+```
+
+| 준비 항목 | 검사 내용과 실패 조건 |
+| --- | --- |
+| 선택한 Town의 지도 | 기본 6개 파일이 정확한 경로에 존재하고 비어 있지 않으며 읽을 수 있어야 합니다. Town04/Town05는 계층 지도 4개도 필요합니다. ZIP이나 중첩 폴더만으로는 통과하지 않습니다. |
+| 원본 Roach 체크포인트 | `--from-scratch`와 별도 ego `--checkpoint`에서도 필수입니다. SHA256가 고정된 원본 값과 일치해야 합니다. 바이트를 읽어 해시만 계산하고 역직렬화하지 않습니다. |
+| 정책 YAML / 별도 ego 가중치 | Git의 정책 YAML이 있어야 하며 실행 경로가 사용하는 별도 ego 체크포인트도 존재해야 합니다. 별도 ego 파일은 원본 NPC 요구사항을 바꾸지 않습니다. |
+| 프로젝트 가상환경 | `.venv/pyvenv.cfg`, 실행 가능한 `.venv/bin/python`, 실제 가상환경 prefix와 Python 3.9 이상을 확인합니다. |
+| 주요 의존성 | 프로젝트 가상환경에서 `numpy`, `torch`, `cv2`, `pygame`, `shapely`, `networkx`, `carla`, `gym`, `gymnasium`, `omegaconf`, `tqdm`, `stable_baselines3`를 import합니다. `torch.serialization.safe_globals` 등 일부 필수 API도 검사합니다. |
+| GUI 설정과 글꼴 | 기본 GUI 및 GUI로 연결되는 시뮬레이션에서 필요하며 Headless·CLI PPO에서는 제외합니다. JSON 크기 설정과 글꼴 파일 경로를 확인합니다. |
+
+실패하면 한국어로 경로·원인·해결 명령을 출력하고 0이 아닌 종료 코드로 끝납니다. 다운로드·압축해제·패키지 설치·정책 로딩·주행·학습을 시작하지 않습니다. 준비 검사가 통과하면 `./run.sh` 또는 README의 개별 명령을 실행하세요. 실제 실행 직전에도 같은 검사가 다시 수행됩니다.
+
+**준비 검사 통과는 실제 주행·학습 성공을 증명하지 않습니다.** 지도 내용, 체크포인트 역직렬화·NumPy 호환성, 전체 패키지 버전 호환성, CUDA·디스플레이 초기화는 검사 범위 밖입니다. 원본 체크포인트의 공개 출처가 미확인이므로 원본을 보유하지 않은 사용자의 재현 blocker는 남습니다.
+
+```bash
+# 합성 자산·의존성 대역을 사용하는 표준 라이브러리 테스트; 실제 정책을 실행하지 않음
+python3 validation/tests/test_preflight.py
+```

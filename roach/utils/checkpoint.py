@@ -4,10 +4,11 @@ from pathlib import Path
 import codecs
 import numpy as np
 import torch
+from roach.utils.asset_manifest import ORIGINAL_CHECKPOINT_PATH, ORIGINAL_CHECKPOINT_SHA256
 
 
-_LEGACY_PATH = Path(__file__).resolve().parents[1] / 'log' / 'ckpt_11833344.pth'
-_LEGACY_SHA256 = '1fecec0c8a206a9ac07a6a9b0be77a5b7e95a073b20d9dfc2a7397354355094a'
+_LEGACY_PATH = Path(__file__).resolve().parents[2] / ORIGINAL_CHECKPOINT_PATH
+_LEGACY_SHA256 = ORIGINAL_CHECKPOINT_SHA256
 
 
 def load_checkpoint(path, map_location='cpu'):
